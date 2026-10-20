@@ -145,6 +145,21 @@ const opacity = opacityMap[intensity];
     opacity: calc(var(--opacity) * 0.6);
   }
 
+  /* Keep the light-theme Aurora airy so its rose layer does not wash over
+     reading surfaces. The purple and blue layers remain visible beneath it. */
+  :global(html[data-theme='light']) .aurora-background {
+    opacity: calc(var(--opacity) * 0.64);
+  }
+
+  :global(html[data-theme='light']) .aurora-3 {
+    background: radial-gradient(
+      ellipse at 78% 10%,
+      var(--aurora-3),
+      transparent 68%
+    );
+    opacity: 0.24;
+  }
+
   /* Pause the (heavily-blurred) layer animations while the tab is hidden so we
      don't burn GPU/battery in the background. Toggled by the script below. */
   .aurora-background.is-paused .aurora-layer,
