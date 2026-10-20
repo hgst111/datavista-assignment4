@@ -1,0 +1,37 @@
+---
+import LabPage from '@/components/labs/LabPage.astro';
+import HierarchyLab from '@/components/labs/HierarchyLab.astro';
+---
+
+<LabPage
+  title="层级数据变形实验室"
+  description="用同一份课程学生样本在 Radial Tree、Sunburst 与 Treemap 之间切换。"
+  eyebrow="02.2 · 02.3 / HIERARCHY LAB"
+  takeaway="连接强调谁属于谁，角度强调父子分区，面积强调各组所占样本量；三种布局呈现的是同一层级。"
+  courses={[
+    { slug: 'ch-2-2', label: '2.2 数据聚合' },
+    { slug: 'ch-2-3', label: '2.3 层级映射' },
+  ]}
+>
+  <HierarchyLab slot="visual" />
+
+  <div class="lab-note-grid">
+    <section class="lab-note-card">
+      <p class="lab-section-eyebrow">视觉编码</p>
+      <h2>布局变形，数据不变</h2>
+      <ul>
+        <li><strong>Radial Tree</strong>：节点和连线保留明确的父子拓扑。</li>
+        <li><strong>Sunburst</strong>：角度分区对应子节点计数，径向层级表示深度。</li>
+        <li><strong>Treemap</strong>：嵌套矩形的面积对应记录数，适合看组成但不利于精确比较。</li>
+      </ul>
+      <p>节点颜色固定对应一级专业；点击节点钻取，上方路径可回退到祖先分组。</p>
+    </section>
+    <section class="lab-note-card">
+      <p class="lab-section-eyebrow">数据说明</p>
+      <h2>从课程 CSV 推导三级分组</h2>
+      <p>源表含 80 条合成学生记录，字段包含班级和性别，但没有独立专业字段。实验从班级名称剥去末尾的班级序号生成专业层，再将班级与性别作为下两层。</p>
+      <p>因此图表说明的是这份教学样本中的记录数量，不代表真实院系招生或性别比例。</p>
+    </section>
+  </div>
+  <p class="lab-source-note">层级构造和树、partition、treemap 布局使用 D3 官方 `d3-hierarchy` 实现。布局中的数量全部由原课程 CSV 分组聚合得到，没有添加样本记录。</p>
+</LabPage>

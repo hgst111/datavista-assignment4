@@ -1,0 +1,30 @@
+---
+import LabPage from '@/components/labs/LabPage.astro';
+import StreamgraphLab from '@/components/labs/StreamgraphLab.astro';
+---
+
+<LabPage
+  title="人名时间 Streamgraph"
+  description="以法国人名 JSON 的 Marie、Jean、Camille 三个年度计数，探索 Streamgraph 流图。"
+  eyebrow="05.2 / STREAMGRAPH"
+  takeaway="流图围绕起伏的中心基线排布系列，能把三个人名随年代的变化组合成连续形态；层厚表示 count，基线位置不是绝对值。"
+  courses={[{ slug: 'ch-5-2', label: '5.2 时间折线' }]}
+>
+  <StreamgraphLab slot="visual" />
+
+  <div class="lab-note-grid">
+    <section class="lab-note-card">
+      <p class="lab-section-eyebrow">为何用流图</p>
+      <h2>从逐条趋势转向整体结构</h2>
+      <p>三个系列都有同一组 1900—2020 年份和非负 count，满足多系列堆叠的基本结构。Streamgraph 使用 wiggle offset 移动堆叠基线，让整体波动围绕中轴展开；横轴保留真实年份，层厚保留每个系列 count。</p>
+      <p>点选年份、拖动滑块或悬停图层可读具体年度值；图例点击后固定高亮一个名字，按 Escape 或再次点击取消。</p>
+    </section>
+    <section class="lab-note-card">
+      <p class="lab-section-eyebrow">谨慎解释</p>
+      <h2>这是三个系列的 count，不是人口份额</h2>
+      <p>原始 JSON 包含 Marie、Jean、Camille 三组逐年计数。原课程将其描述为法国人名使用频率，但文件没有来源机构、完整名字目录或分母定义。</p>
+      <p>因此图中只比较这三组数据本身。选中年份读数用于精确比较；不将层的垂直位置解释为单系列绝对数量，也不推断人口比例或社会成因。</p>
+    </section>
+  </div>
+  <p class="lab-source-note">Streamgraph 数据与课程 5.2 同源。布局使用 D3 `stackOffsetWiggle` 和 `stackOrderInsideOut`；算法依据 D3 的开源 API，未复制 Observable Notebook 或图库中某个具体 Notebook 的实现代码。</p>
+</LabPage>

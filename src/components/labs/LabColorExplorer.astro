@@ -1,0 +1,319 @@
+---
+---
+
+<section class="lab-visual-card color-explorer" data-lab-color aria-labelledby="lab-color-figure-title">
+  <div class="lab-visual-card__head">
+    <div>
+      <p class="lab-section-eyebrow">感知色域 · CIE 1976</p>
+      <h2 id="lab-color-figure-title">固定 L* 的 a*–b* 色域截面</h2>
+      <p>色块是真正转换到 sRGB 的 Lab 采样；斜线区域表示超出显示器 sRGB 色域。</p>
+    </div>
+    <div class="lab-readout" aria-live="polite">
+      <span class="color-chip" data-color-chip aria-hidden="true"></span>
+      <output data-color-readout>Lab(62, 0, 0) · #929292</output>
+    </div>
+  </div>
+
+  <div class="color-explorer__layout">
+    <figure class="lab-chart-surface color-explorer__gamut">
+      <svg data-gamut viewBox="0 0 560 445" role="img" aria-label="CIE Lab 固定明度色域截面，横轴为 a*，纵轴为 b*。可点击可显示色块选色。">
+        <defs>
+          <pattern id="lab-outside-gamut" width="7" height="7" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+            <rect width="7" height="7" fill="var(--color-bg)" opacity="0.55"></rect>
+            <line x1="0" y1="0" x2="0" y2="7" stroke="var(--color-text-muted)" stroke-width="1.2" opacity="0.6"></line>
+          </pattern>
+        </defs>
+        <g data-lab-grid></g>
+        <g data-lab-axes></g>
+        <circle data-lab-marker r="7" fill="none" stroke="var(--color-text)" stroke-width="2.5" pointer-events="none"></circle>
+        <circle data-lab-marker-inner r="2.4" fill="var(--color-text)" pointer-events="none"></circle>
+      </svg>
+      <figcaption class="sr-only">CIE Lab a*–b* 截面。超出 sRGB 色域的采样用斜线填充表示。</figcaption>
+    </figure>
+
+    <div class="color-explorer__controls">
+      <div class="lab-control">
+        <label for="lab-lightness">明度 L* <output data-l-value>62</output></label>
+        <input id="lab-lightness" data-l-slider type="range" min="18" max="92" value="62" step="1" />
+      </div>
+      <div class="lab-control">
+        <label for="lab-a">绿 ↔ 红 · a* <output data-a-value>0</output></label>
+        <input id="lab-a" data-a-slider type="range" min="-100" max="100" value="0" step="1" />
+      </div>
+      <div class="lab-control">
+        <label for="lab-b">蓝 ↔ 黄 · b* <output data-b-value>0</output></label>
+        <input id="lab-b" data-b-slider type="range" min="-100" max="100" value="0" step="1" />
+      </div>
+
+      <section class="color-explorer__comparison" aria-labelledby="lab-interpolation-title">
+        <h3 id="lab-interpolation-title">同一端点，不同插值空间</h3>
+        <p>紫蓝 → 琥珀。Lab 插值按感知空间移动；RGB 插值直接混合通道。</p>
+        <div class="interpolation-row"><span>RGB</span><div data-rgb-ramp class="color-ramp" aria-label="RGB 插值色带"></div></div>
+        <div class="interpolation-row"><span>Lab</span><div data-lab-ramp class="color-ramp" aria-label="Lab 插值色带"></div></div>
+      </section>
+
+      <section class="color-explorer__palettes" aria-labelledby="lab-palette-title">
+        <h3 id="lab-palette-title">三种数据任务的调色板</h3>
+        <div class="palette-row"><span>顺序 · Viridis</span><div data-palette="sequential" class="palette-strip" aria-label="Viridis 顺序色板"></div></div>
+        <div class="palette-row"><span>发散 · RdBu</span><div data-palette="diverging" class="palette-strip" aria-label="RdBu 发散色板"></div></div>
+        <div class="palette-row"><span>分类 · Tableau</span><div data-palette="categorical" class="palette-strip" aria-label="Tableau 分类色板"></div></div>
+      </section>
+    </div>
+  </div>
+  <p class="lab-source-note">色域边界随 L* 改变，因为设备可显示的 RGB 颜色受色域限制；Lab 坐标空间本身并不等于显示器实际可显示的颜色。</p>
+</section>
+
+<script>
+  import {
+    axisBottom,
+    axisLeft,
+    interpolateLab,
+    interpolateRdBu,
+    interpolateRgb,
+    interpolateViridis,
+    lab,
+    scaleLinear,
+    select,
+    schemeTableau10,
+  } from 'd3';
+  import { onLeave, onPage } from '@/lib/lifecycle';
+
+  let dispose = () => {};
+
+  onPage(() => {
+    dispose();
+    const root = document.querySelector<HTMLElement>('[data-lab-color]')!;
+    if (!root) return;
+
+    const svg = root.querySelector<SVGSVGElement>('[data-gamut]')!;
+    const grid = root.querySelector<SVGGElement>('[data-lab-grid]')!;
+    const axes = root.querySelector<SVGGElement>('[data-lab-axes]')!;
+    const marker = root.querySelector<SVGCircleElement>('[data-lab-marker]')!;
+    const markerInner = root.querySelector<SVGCircleElement>('[data-lab-marker-inner]')!;
+    const lightness = root.querySelector<HTMLInputElement>('[data-l-slider]')!;
+    const aSlider = root.querySelector<HTMLInputElement>('[data-a-slider]')!;
+    const bSlider = root.querySelector<HTMLInputElement>('[data-b-slider]')!;
+    if (!svg || !grid || !axes || !marker || !markerInner || !lightness || !aSlider || !bSlider) return;
+
+    const plot = { left: 68, top: 18, right: 530, bottom: 374 };
+    const aScale = scaleLinear().domain([-110, 110]).range([plot.left, plot.right]);
+    const bScale = scaleLinear().domain([110, -110]).range([plot.top, plot.bottom]);
+    const gridSelection = select(grid);
+    const axisSelection = select(axes);
+    const points = Array.from({ length: 37 }, (_, index) => -108 + (index + 0.5) * 216 / 37);
+    const tileWidth = (plot.right - plot.left) / points.length;
+    const tileHeight = (plot.bottom - plot.top) / points.length;
+    const tileData = points.flatMap((b) => points.map((a) => ({ a, b })));
+
+    gridSelection.selectAll<SVGRectElement, { a: number; b: number }>('rect.lab-sample')
+      .data(tileData)
+      .join('rect')
+      .attr('class', 'lab-sample')
+      .attr('x', (point) => aScale(point.a) - tileWidth / 2)
+      .attr('y', (point) => bScale(point.b) - tileHeight / 2)
+      .attr('width', tileWidth + 0.35)
+      .attr('height', tileHeight + 0.35)
+      .attr('data-a', (point) => point.a)
+      .attr('data-b', (point) => point.b)
+      .style('cursor', 'crosshair');
+
+    axisSelection.append('g')
+      .attr('transform', `translate(0,${plot.bottom})`)
+      .call(axisBottom(aScale).ticks(7).tickSizeOuter(0));
+    axisSelection.append('g')
+      .attr('transform', `translate(${plot.left},0)`)
+      .call(axisLeft(bScale).ticks(6).tickSizeOuter(0));
+    axisSelection.append('text')
+      .attr('x', (plot.left + plot.right) / 2)
+      .attr('y', 420)
+      .attr('text-anchor', 'middle')
+      .text('a*  ·  绿 ← → 红');
+    axisSelection.append('text')
+      .attr('transform', `translate(17,${(plot.top + plot.bottom) / 2}) rotate(-90)`)
+      .attr('text-anchor', 'middle')
+      .text('b*  ·  蓝 ← → 黄');
+
+    const lValue = root.querySelector<HTMLOutputElement>('[data-l-value]')!;
+    const aValue = root.querySelector<HTMLOutputElement>('[data-a-value]')!;
+    const bValue = root.querySelector<HTMLOutputElement>('[data-b-value]')!;
+    const readout = root.querySelector<HTMLOutputElement>('[data-color-readout]')!;
+    const chip = root.querySelector<HTMLElement>('[data-color-chip]')!;
+    if (!lValue || !aValue || !bValue || !readout || !chip) return;
+
+    function updateSample() {
+      const L = Number(lightness.value);
+      const a = Number(aSlider.value);
+      const b = Number(bSlider.value);
+      const color = lab(L, a, b).rgb();
+      const hex = color.formatHex();
+      lValue.value = String(L);
+      aValue.value = String(a);
+      bValue.value = String(b);
+      readout.value = `Lab(${L}, ${a}, ${b}) · ${hex}${color.displayable() ? '' : ' · 超出 sRGB'}`;
+      chip.style.backgroundColor = hex;
+      marker.setAttribute('cx', String(aScale(a)));
+      marker.setAttribute('cy', String(bScale(b)));
+      markerInner.setAttribute('cx', String(aScale(a)));
+      markerInner.setAttribute('cy', String(bScale(b)));
+      gridSelection.selectAll<SVGRectElement, { a: number; b: number }>('rect.lab-sample')
+        .attr('fill', (point) => {
+          const sample = lab(L, point.a, point.b).rgb();
+          return sample.displayable() ? sample.formatHex() : 'url(#lab-outside-gamut)';
+        })
+        .attr('aria-label', (point) => `Lab ${L}, ${Math.round(point.a)}, ${Math.round(point.b)}`);
+    }
+
+    function selectFromPlot(event: MouseEvent) {
+      const [x, y] = select(svg).node() ? (awaitlessPointer(event, svg)) : [0, 0];
+      aSlider.value = String(Math.round(Math.max(-100, Math.min(100, aScale.invert(x)))));
+      bSlider.value = String(Math.round(Math.max(-100, Math.min(100, bScale.invert(y)))));
+      updateSample();
+    }
+
+    // d3.pointer is kept behind this local wrapper so the chart has one SVG coordinate path.
+    function awaitlessPointer(event: MouseEvent, target: SVGSVGElement): [number, number] {
+      const box = target.getBoundingClientRect();
+      const viewBox = target.viewBox.baseVal;
+      return [
+        ((event.clientX - box.left) / box.width) * viewBox.width,
+        ((event.clientY - box.top) / box.height) * viewBox.height,
+      ];
+    }
+
+    const onL = () => updateSample();
+    const onA = () => updateSample();
+    const onB = () => updateSample();
+    lightness.addEventListener('input', onL);
+    aSlider.addEventListener('input', onA);
+    bSlider.addEventListener('input', onB);
+    svg.addEventListener('click', selectFromPlot);
+    updateSample();
+
+    const rgbRamp = root.querySelector<HTMLElement>('[data-rgb-ramp]');
+    const labRamp = root.querySelector<HTMLElement>('[data-lab-ramp]');
+    const endpoints = ['#6558e8', '#f2a344'];
+    for (const [node, interpolate] of [[rgbRamp, interpolateRgb], [labRamp, interpolateLab]] as const) {
+      if (!node) continue;
+      node.replaceChildren(...Array.from({ length: 13 }, (_, index) => {
+        const swatch = document.createElement('span');
+        const amount = index / 12;
+        swatch.style.backgroundColor = interpolate(endpoints[0], endpoints[1])(amount);
+        swatch.setAttribute('aria-hidden', 'true');
+        return swatch;
+      }));
+    }
+
+    for (const [key, sampler] of [
+      ['sequential', interpolateViridis],
+      ['diverging', (t: number) => interpolateRdBu(1 - t)],
+      ['categorical', (t: number) => schemeTableau10[Math.min(9, Math.floor(t * 10))]],
+    ] as const) {
+      const strip = root.querySelector<HTMLElement>(`[data-palette="${key}"]`);
+      if (!strip) continue;
+      const count = key === 'categorical' ? 8 : 11;
+      strip.replaceChildren(...Array.from({ length: count }, (_, index) => {
+        const swatch = document.createElement('span');
+        swatch.style.backgroundColor = sampler(index / (count - 1));
+        swatch.setAttribute('aria-hidden', 'true');
+        return swatch;
+      }));
+    }
+
+    dispose = () => {
+      lightness.removeEventListener('input', onL);
+      aSlider.removeEventListener('input', onA);
+      bSlider.removeEventListener('input', onB);
+      svg.removeEventListener('click', selectFromPlot);
+      gridSelection.selectAll('*').remove();
+      axisSelection.selectAll('*').remove();
+    };
+  });
+
+  onLeave(() => {
+    dispose();
+    dispose = () => {};
+  });
+</script>
+
+<style>
+  .color-explorer__layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1.04fr) minmax(17rem, 0.96fr);
+    gap: clamp(1rem, 2.5vw, 1.5rem);
+    align-items: start;
+  }
+
+  .color-explorer__gamut {
+    margin: 0;
+    background: color-mix(in srgb, var(--color-bg), #121421 62%);
+  }
+
+  .color-explorer__gamut text {
+    fill: #f4f3f8;
+  }
+
+  .color-explorer__controls {
+    display: grid;
+    gap: 0.85rem;
+  }
+
+  .color-explorer__comparison,
+  .color-explorer__palettes {
+    padding: 0.9rem;
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-lg);
+    background: color-mix(in srgb, var(--glass-bg), var(--color-bg) 22%);
+  }
+
+  .color-explorer__comparison h3,
+  .color-explorer__palettes h3 {
+    margin: 0 0 0.25rem;
+    font-size: var(--text-base);
+  }
+
+  .color-explorer__comparison p {
+    margin: 0 0 0.65rem;
+    color: var(--color-text-muted);
+    font-size: var(--text-sm);
+    line-height: 1.5;
+  }
+
+  .interpolation-row,
+  .palette-row {
+    display: grid;
+    grid-template-columns: 7rem minmax(0, 1fr);
+    gap: 0.55rem;
+    align-items: center;
+    margin-top: 0.5rem;
+    color: var(--color-text-muted);
+    font-size: var(--text-xs);
+  }
+
+  .color-ramp,
+  .palette-strip {
+    display: flex;
+    min-width: 0;
+    overflow: hidden;
+    height: 1rem;
+    border-radius: var(--radius-full);
+  }
+
+  .color-ramp span,
+  .palette-strip span {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+
+  .color-chip {
+    width: 1rem;
+    height: 1rem;
+    border: 1px solid var(--glass-border);
+    border-radius: 50%;
+  }
+
+  @media (max-width: 850px) {
+    .color-explorer__layout {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>

@@ -1,0 +1,34 @@
+---
+import LabPage from '@/components/labs/LabPage.astro';
+import TimeShapesLab from '@/components/labs/TimeShapesLab.astro';
+---
+
+<LabPage
+  title="时间形态实验室"
+  description="以原课程 2024 年天气序列联动比较折线、日历热图和阿基米德时间螺旋。"
+  eyebrow="05.2 · 05.3 · 05.4 / TIME LAB"
+  takeaway="数据不变，只改变时间坐标：同一段天气记录可以突出趋势、周历节律，或一年中的季节循环。"
+  courses={[
+    { slug: 'ch-5-2', label: '5.2 时间折线' },
+    { slug: 'ch-5-3', label: '5.3 日历热图' },
+    { slug: 'ch-5-4', label: '5.4 时间螺旋' },
+  ]}
+>
+  <TimeShapesLab slot="visual" />
+
+  <div class="lab-note-grid">
+    <section class="lab-note-card">
+      <p class="lab-section-eyebrow">同一日期 · 三种位置</p>
+      <h2>读趋势，也读周期</h2>
+      <p>线图用位置展示最高温或降雨随日期的连续变化；日历以列表示周、行表示星期；螺旋按日期递增角度，并按年内进度逐渐增加半径，让每一圈大致对应一个月。</p>
+      <p>选择日期、移动时间滑块、点击日历格或在螺旋上指向日期，三个视图都同步高亮。指标切换会重绘全部视图与图例。</p>
+    </section>
+    <section class="lab-note-card">
+      <p class="lab-section-eyebrow">颜色与限制</p>
+      <h2>颜色提供模式，读数给出精确值</h2>
+      <p>最高温使用以本序列均值为中心的冷暖发散色；降雨量使用从低到高的蓝绿顺序色。悬停、键盘聚焦或日期选择器都会显示具体日期和值，因此读数不依赖颜色辨认。</p>
+      <p>课程讲义将温度演示说明为北京每日最高温。天气 CSV 没有附上气象站或采集机构信息，页面保留此来源限制。</p>
+    </section>
+  </div>
+  <p class="lab-source-note">原课程数据：`lesson-05/data/weather_2024.csv`。年度记录为 366 天，适配 2024 闰年；日历的周以星期一开始。源快照未改动，本页对原始列执行数值解析并添加 UTC 日期索引以避免本地时区偏移。</p>
+</LabPage>

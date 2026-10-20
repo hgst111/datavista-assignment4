@@ -1,0 +1,262 @@
+---
+import { getCollection } from 'astro:content';
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import Header from '@/components/common/Header.astro';
+import Footer from '@/components/common/Footer.astro';
+import Container from '@/components/ui/Container.astro';
+import GlassCard from '@/components/ui/GlassCard.astro';
+import Section from '@/components/ui/Section.astro';
+import { withBase } from '@/lib/url';
+
+const lessons = (await getCollection('courses')).sort(
+  (a, b) => a.data.order - b.data.order,
+);
+const chapterTitles = [
+  '数据',
+  '数据可视化流程',
+  '色彩专题',
+  '低维数据可视化',
+  '时序数据可视化',
+];
+const chapters = chapterTitles.map((title, index) => ({
+  number: index + 1,
+  title,
+  lessons: lessons.filter((lesson) => lesson.data.chapter === index + 1),
+}));
+---
+
+<BaseLayout
+  title="课程目录"
+  description="《可视化导论》五章、27 节课程阅读目录。"
+>
+  <Header />
+  <main id="main" tabindex="-1" class="course-index">
+    <section class="course-index__hero">
+      <Container size="xl">
+        <p class="eyebrow">COURSE MAP · 5 CHAPTERS · 27 SECTIONS</p>
+        <h1>课程目录</h1>
+        <p class="lead">
+          从数据本身出发，经过可视化流程、颜色与低维表达，最终观察时间如何组织成故事。
+          每节保留原课程的讲解、关键代码与演示入口。
+        </p>
+        <div class="course-index__meta">
+          <span>讲解与代码按原章节对应</span>
+          <span>原始演示由独立静态页面承载</span>
+          <span>中英文课程材料均已归档</span>
+        </div>
+      </Container>
+    </section>
+
+    <Section
+      title="五章课程"
+      subtitle="选择章节进入连续阅读，也可以直接从任意小节开始。"
+      container="xl"
+      align="left"
+      spacing="md"
+    >
+      <div class="chapter-list">
+        {
+          chapters.map((chapter) => (
+            <section class="chapter-group" aria-labelledby={'chapter-' + chapter.number}>
+              <header class="chapter-group__header">
+                <span class="chapter-number">CHAPTER {String(chapter.number).padStart(2, '0')}</span>
+                <div>
+                  <h2 id={'chapter-' + chapter.number}>
+                    第 {chapter.number} 章 · {chapter.title}
+                  </h2>
+                  <p>{chapter.lessons.length} 节 · 原课件与演示入口</p>
+                </div>
+              </header>
+              <div class="section-grid">
+                {chapter.lessons.map((lesson) => (
+                  <GlassCard
+                    href={withBase('/course/' + lesson.id + '/')}
+                    padding="md"
+                    class="section-card"
+                  >
+                    <span class="section-card__number">{lesson.data.sectionNumber}</span>
+                    <h3>{lesson.data.title}</h3>
+                    <p>{lesson.data.summary}</p>
+                    <span class="section-card__action">
+                      {lesson.data.hasDemo ? '阅读并打开演示 →' : '阅读讲解与代码 →'}
+                    </span>
+                  </GlassCard>
+                ))}
+              </div>
+            </section>
+          ))
+        }
+      </div>
+    </Section>
+
+    <Container size="xl">
+      <div class="course-index__links glass-card">
+        <div>
+          <p class="eyebrow">KEEP EXPLORING</p>
+          <h2>从阅读走进演示</h2>
+          <p>实验室直接连接原版 1.1 数据加载器和 4.5 等值线演示。</p>
+        </div>
+        <a class="course-link" href={withBase('/labs/')}>打开可视化实验室</a>
+      </div>
+    </Container>
+  </main>
+  <Footer />
+</BaseLayout>
+
+<style>
+  .course-index {
+    padding-bottom: var(--space-3xl);
+  }
+
+  .course-index__hero {
+    padding-block: clamp(4rem, 11vw, 8rem) var(--space-2xl);
+  }
+
+  .eyebrow,
+  .chapter-number {
+    color: var(--color-accent-text);
+    font-size: var(--text-xs);
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+
+  .course-index__hero h1 {
+    margin: var(--space-md) 0;
+    font-size: var(--text-5xl);
+    line-height: 1.05;
+  }
+
+  .lead {
+    max-width: 48rem;
+    margin: 0;
+    color: var(--color-text-muted);
+    font-size: var(--text-xl);
+    line-height: 1.7;
+  }
+
+  .course-index__meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-sm);
+    margin-top: var(--space-xl);
+  }
+
+  .course-index__meta span {
+    padding: 0.4rem 0.75rem;
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-full);
+    background: var(--glass-bg);
+    color: var(--color-text-muted);
+    font-size: var(--text-sm);
+  }
+
+  .chapter-list {
+    display: grid;
+    gap: var(--space-2xl);
+  }
+
+  .chapter-group {
+    padding: var(--space-xl);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-xl);
+    background: var(--glass-bg);
+    backdrop-filter: blur(var(--glass-blur-sm)) saturate(var(--glass-sat));
+  }
+
+  .chapter-group__header {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-lg);
+    margin-bottom: var(--space-lg);
+  }
+
+  .chapter-group__header h2 {
+    margin: 0 0 var(--space-xs);
+    font-size: var(--text-2xl);
+  }
+
+  .chapter-group__header p {
+    margin: 0;
+    color: var(--color-text-muted);
+  }
+
+  .chapter-number {
+    flex: 0 0 auto;
+    padding-top: 0.5rem;
+  }
+
+  .section-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--space-md);
+  }
+
+  .section-card {
+    min-height: 12rem;
+  }
+
+  .section-card__number {
+    color: var(--color-accent-text);
+    font-size: var(--text-sm);
+    font-weight: 700;
+  }
+
+  .section-card h3 {
+    margin: var(--space-sm) 0;
+    font-size: var(--text-lg);
+  }
+
+  .section-card p {
+    color: var(--color-text-muted);
+    line-height: 1.55;
+  }
+
+  .section-card__action {
+    color: var(--color-accent-text);
+    font-size: var(--text-sm);
+    font-weight: 600;
+  }
+
+  .course-index__links {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-xl);
+    margin-top: var(--space-2xl);
+  }
+
+  .course-index__links h2 {
+    margin: var(--space-xs) 0;
+  }
+
+  .course-index__links p:last-child {
+    color: var(--color-text-muted);
+  }
+
+  .course-link {
+    color: var(--color-accent-text);
+    font-weight: 700;
+    white-space: nowrap;
+  }
+
+  @media (max-width: 640px) {
+    .section-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .chapter-group {
+      padding: var(--space-lg);
+    }
+
+    .chapter-group__header {
+      flex-direction: column;
+      gap: var(--space-xs);
+    }
+
+    .course-index__links {
+      align-items: flex-start;
+      flex-direction: column;
+    }
+  }
+</style>

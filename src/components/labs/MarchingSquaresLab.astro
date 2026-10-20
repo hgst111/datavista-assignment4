@@ -1,0 +1,471 @@
+---
+---
+
+<section class="lab-visual-card marching-lab" data-marching-lab aria-labelledby="marching-figure-title">
+  <div class="lab-visual-card__head">
+    <div>
+      <p class="lab-section-eyebrow">真实算法 · 8 × 8 合成标量场</p>
+      <h2 id="marching-figure-title">从离散采样到等值曲线</h2>
+      <p>拖动阈值，16-case 查表会逐网格单元重新计算；连续场、等值线与等值带由同一组原始采样值生成。</p>
+    </div>
+    <output class="lab-readout" data-threshold-readout aria-live="polite">阈值 0.50</output>
+  </div>
+
+  <div class="marching-lab__layout">
+    <div class="marching-lab__plot">
+      <div class="lab-chart-surface marching-lab__chart">
+        <canvas data-field-canvas aria-hidden="true"></canvas>
+        <svg data-contour-svg viewBox="0 0 560 560" role="img" aria-label="8 乘 8 高斯合成标量场及其 Marching Squares 等值线">
+          <g data-band-layer></g>
+          <g data-grid-layer></g>
+          <g data-line-layer></g>
+          <rect data-cell-highlight fill="none" stroke="#fff" stroke-width="3" pointer-events="none"></rect>
+          <g data-selected-segments pointer-events="none"></g>
+        </svg>
+      </div>
+      <div class="lab-legend marching-lab__legend" aria-label="显示方式">
+        <button type="button" data-mode="contours" aria-pressed="true">连续场 + 等值线</button>
+        <button type="button" data-mode="bands" aria-pressed="false">连续场 + 等值带</button>
+        <label class="marching-lab__check"><input data-grid-toggle type="checkbox" checked /> 显示网格</label>
+      </div>
+    </div>
+
+    <aside class="marching-lab__controls" aria-label="等值线控制">
+      <label class="lab-control" for="marching-threshold">
+        <span>等值阈值 <output data-threshold-value>0.50</output></span>
+        <input id="marching-threshold" data-threshold type="range" min="0.02" max="1.1" step="0.01" value="0.5" />
+      </label>
+      <label class="lab-control" for="marching-cell">
+        <span>检查网格单元</span>
+        <select id="marching-cell" data-cell-select aria-label="选择要检查的网格单元"></select>
+      </label>
+      <div class="marching-lab__step-controls">
+        <button class="lab-control-button" data-cell-prev type="button">← 上一格</button>
+        <button class="lab-control-button" data-cell-next type="button">下一格 →</button>
+      </div>
+      <div class="marching-lab__cell-card" data-cell-readout aria-live="polite">
+        <p class="lab-section-eyebrow">局部状态</p>
+        <h3 data-cell-title>单元 C1 · R1</h3>
+        <p data-cell-code>case 0</p>
+        <p data-cell-values>选择网格以查看四角值与交点。</p>
+      </div>
+      <p class="lab-source-note">场函数来自原课程 4.5：两个高斯峰叠加。它是算法演示用的合成场，不是实际地形或测量数据。</p>
+    </aside>
+  </div>
+</section>
+
+<script>
+  import {
+    contours,
+    geoIdentity,
+    geoPath,
+    interpolateMagma,
+    max,
+    min,
+    rgb,
+    select,
+  } from 'd3';
+  import { onLeave, onPage } from '@/lib/lifecycle';
+
+  const N = 8;
+  const EXTENT = { x: 42, y: 42, size: 476 };
+  const CELL = EXTENT.size / (N - 1);
+  const EDGE_TABLE: number[][][] = [
+    [], [[3, 0]], [[0, 1]], [[3, 1]], [[1, 2]], [[3, 0], [1, 2]], [[0, 2]], [[3, 2]],
+    [[2, 3]], [[2, 0]], [[0, 1], [2, 3]], [[2, 1]], [[1, 3]], [[1, 0]], [[0, 3]], [],
+  ];
+
+  function field(x: number, y: number): number {
+    const cx = 3.5;
+    const cy = 4;
+    return Math.exp(-((x - cx) ** 2 + (y - cy) ** 2) / 6)
+      + 0.3 * Math.exp(-((x - 1) ** 2 + (y - 6) ** 2) / 3);
+  }
+
+  let dispose = () => {};
+
+  onPage(() => {
+    dispose();
+    const root = document.querySelector<HTMLElement>('[data-marching-lab]')!;
+    if (!root) return;
+    const canvas = root.querySelector<HTMLCanvasElement>('[data-field-canvas]')!;
+    const svg = root.querySelector<SVGSVGElement>('[data-contour-svg]')!;
+    const bandLayer = root.querySelector<SVGGElement>('[data-band-layer]')!;
+    const gridLayer = root.querySelector<SVGGElement>('[data-grid-layer]')!;
+    const lineLayer = root.querySelector<SVGGElement>('[data-line-layer]')!;
+    const selectedSegments = root.querySelector<SVGGElement>('[data-selected-segments]')!;
+    const highlight = root.querySelector<SVGRectElement>('[data-cell-highlight]')!;
+    const threshold = root.querySelector<HTMLInputElement>('[data-threshold]')!;
+    const cellSelect = root.querySelector<HTMLSelectElement>('[data-cell-select]')!;
+    const gridToggle = root.querySelector<HTMLInputElement>('[data-grid-toggle]')!;
+    const thresholdValue = root.querySelector<HTMLOutputElement>('[data-threshold-value]')!;
+    const thresholdReadout = root.querySelector<HTMLOutputElement>('[data-threshold-readout]')!;
+    const cellTitle = root.querySelector<HTMLElement>('[data-cell-title]')!;
+    const cellCode = root.querySelector<HTMLElement>('[data-cell-code]')!;
+    const cellValues = root.querySelector<HTMLElement>('[data-cell-values]')!;
+    if (!canvas || !svg || !bandLayer || !gridLayer || !lineLayer || !selectedSegments || !highlight || !threshold || !cellSelect || !gridToggle || !thresholdValue || !thresholdReadout || !cellTitle || !cellCode || !cellValues) return;
+
+    const grid = Array.from({ length: N }, (_, y) => Array.from({ length: N }, (_, x) => field(x, y)));
+    const values = grid.flat();
+    const low = min(values) ?? 0;
+    const high = max(values) ?? 1;
+    const ctx = canvas.getContext('2d')!;
+    let currentCell = 0;
+    let mode: 'contours' | 'bands' = 'contours';
+    let fieldDrawn = false;
+
+    for (let row = 0; row < N - 1; row += 1) {
+      for (let column = 0; column < N - 1; column += 1) {
+        const option = document.createElement('option');
+        const index = row * (N - 1) + column;
+        option.value = String(index);
+        option.textContent = `第 ${row + 1} 行 · 第 ${column + 1} 列`;
+        cellSelect.append(option);
+      }
+    }
+
+    const xAt = (x: number) => EXTENT.x + x * CELL;
+    const yAt = (y: number) => EXTENT.y + y * CELL;
+    const samplesAtCell = (index: number) => {
+      const row = Math.floor(index / (N - 1));
+      const column = index % (N - 1);
+      return {
+        row,
+        column,
+        tl: grid[row][column],
+        tr: grid[row][column + 1],
+        br: grid[row + 1][column + 1],
+        bl: grid[row + 1][column],
+      };
+    };
+
+    function cellCase(index: number, level: number): number {
+      const { tl, tr, br, bl } = samplesAtCell(index);
+      let code = 0;
+      if (bl > level) code |= 1;
+      if (br > level) code |= 2;
+      if (tr > level) code |= 4;
+      if (tl > level) code |= 8;
+      return code;
+    }
+
+    function edgePoint(edge: number, x: number, y: number, corners: ReturnType<typeof samplesAtCell>, level: number): [number, number] {
+      const edges = [
+        { from: [corners.bl, xAt(x), yAt(y + 1)], to: [corners.tl, xAt(x), yAt(y)] },
+        { from: [corners.bl, xAt(x), yAt(y + 1)], to: [corners.br, xAt(x + 1), yAt(y + 1)] },
+        { from: [corners.br, xAt(x + 1), yAt(y + 1)], to: [corners.tr, xAt(x + 1), yAt(y)] },
+        { from: [corners.tl, xAt(x), yAt(y)], to: [corners.tr, xAt(x + 1), yAt(y)] },
+      ];
+      const pair = edges[edge];
+      const [v0, x0, y0] = pair.from;
+      const [v1, x1, y1] = pair.to;
+      const amount = v0 === v1 ? 0.5 : Math.max(0, Math.min(1, (level - v0) / (v1 - v0)));
+      return [x0 + (x1 - x0) * amount, y0 + (y1 - y0) * amount];
+    }
+
+    function drawField() {
+      const cssWidth = Math.max(1, canvas.clientWidth || 560);
+      const pixelRatio = Math.min(window.devicePixelRatio || 1, 2);
+      const backingWidth = Math.round(cssWidth * pixelRatio);
+      const backingHeight = Math.round(cssWidth * pixelRatio);
+      if (canvas.width !== backingWidth || canvas.height !== backingHeight) {
+        canvas.width = backingWidth;
+        canvas.height = backingHeight;
+      }
+      const sx = backingWidth / 560;
+      const sy = backingHeight / 560;
+      const image = ctx.createImageData(backingWidth, backingHeight);
+      const span = EXTENT.size;
+      for (let py = 0; py < backingHeight; py += 1) {
+        for (let px = 0; px < backingWidth; px += 1) {
+          const x = px / sx;
+          const y = py / sy;
+          const target = (py * backingWidth + px) * 4;
+          if (x < EXTENT.x || y < EXTENT.y || x > EXTENT.x + span || y > EXTENT.y + span) {
+            image.data[target + 3] = 0;
+            continue;
+          }
+          const gx = Math.min(N - 1.000001, Math.max(0, ((x - EXTENT.x) / span) * (N - 1)));
+          const gy = Math.min(N - 1.000001, Math.max(0, ((y - EXTENT.y) / span) * (N - 1)));
+          const x0 = Math.floor(gx);
+          const y0 = Math.floor(gy);
+          const tx = gx - x0;
+          const ty = gy - y0;
+          const top = grid[y0][x0] * (1 - tx) + grid[y0][x0 + 1] * tx;
+          const bottom = grid[y0 + 1][x0] * (1 - tx) + grid[y0 + 1][x0 + 1] * tx;
+          const v = top * (1 - ty) + bottom * ty;
+          const color = rgb(interpolateMagma((v - low) / (high - low)));
+          image.data[target] = color.r;
+          image.data[target + 1] = color.g;
+          image.data[target + 2] = color.b;
+          image.data[target + 3] = 255;
+        }
+      }
+      ctx.putImageData(image, 0, 0);
+      fieldDrawn = true;
+    }
+
+    function drawGrid() {
+      const showGrid = gridToggle.checked;
+      const samples = grid.flatMap((line, row) => line.map((value, column) => ({ value, row, column })));
+      select(gridLayer).selectAll<SVGCircleElement, (typeof samples)[number]>('circle.sample-point')
+        .data(samples)
+        .join('circle')
+        .attr('class', 'sample-point')
+        .attr('cx', (point) => xAt(point.column))
+        .attr('cy', (point) => yAt(point.row))
+        .attr('r', showGrid ? 3 : 0)
+        .attr('fill', '#fff')
+        .attr('stroke', '#171520')
+        .attr('stroke-width', 1)
+        .attr('opacity', 0.92);
+      select(gridLayer).selectAll<SVGPathElement, number>('path.grid-lines')
+        .data(showGrid ? [1] : [])
+        .join('path')
+        .attr('class', 'grid-lines')
+        .attr('d', () => {
+          let d = '';
+          for (let i = 0; i < N; i += 1) {
+            d += `M${xAt(i)},${yAt(0)}V${yAt(N - 1)}M${xAt(0)},${yAt(i)}H${xAt(N - 1)}`;
+          }
+          return d;
+        })
+        .attr('fill', 'none')
+        .attr('stroke', '#fff')
+        .attr('stroke-width', 1)
+        .attr('stroke-opacity', 0.55);
+    }
+
+    function drawBands() {
+      const levels = Array.from({ length: 8 }, (_, index) => low + (high - low) * (index + 1) / 9);
+      const projection = geoIdentity().scale(CELL).translate([EXTENT.x - CELL / 2, EXTENT.y - CELL / 2]);
+      const path = geoPath(projection);
+      const generated = contours().size([N, N]).thresholds(levels)(values);
+      select(bandLayer).selectAll<SVGPathElement, (typeof generated)[number]>('path')
+        .data(generated)
+        .join('path')
+        .attr('d', (contour) => path(contour) ?? '')
+        .attr('transform', 'translate(0,0)')
+        .attr('fill', (contour) => interpolateMagma((contour.value - low) / (high - low)))
+        .attr('opacity', 0.46)
+        .attr('stroke', 'rgba(255,255,255,.48)')
+        .attr('stroke-width', 0.8);
+    }
+
+    function drawLines(level: number) {
+      const segments: { index: number; edgeA: number; edgeB: number; d: string }[] = [];
+      for (let row = 0; row < N - 1; row += 1) {
+        for (let column = 0; column < N - 1; column += 1) {
+          const index = row * (N - 1) + column;
+          const code = cellCase(index, level);
+          const corners = samplesAtCell(index);
+          for (const [edgeA, edgeB] of EDGE_TABLE[code]) {
+            const start = edgePoint(edgeA, column, row, corners, level);
+            const end = edgePoint(edgeB, column, row, corners, level);
+            segments.push({ index, edgeA, edgeB, d: `M${start[0]},${start[1]}L${end[0]},${end[1]}` });
+          }
+        }
+      }
+      select(lineLayer).selectAll<SVGPathElement, (typeof segments)[number]>('path.contour-segment')
+        .data(segments)
+        .join('path')
+        .attr('class', 'contour-segment')
+        .attr('d', (segment) => segment.d)
+        .attr('fill', 'none')
+        .attr('stroke', '#fff')
+        .attr('stroke-width', 4)
+        .attr('stroke-linecap', 'round')
+        .attr('stroke-linejoin', 'round')
+        .attr('opacity', 0.96);
+      const focused = segments.filter((segment) => segment.index === currentCell);
+      select(selectedSegments).selectAll<SVGPathElement, (typeof focused)[number]>('path')
+        .data(focused)
+        .join('path')
+        .attr('d', (segment) => segment.d)
+        .attr('fill', 'none')
+        .attr('stroke', '#fffb93')
+        .attr('stroke-width', 6)
+        .attr('stroke-linecap', 'round');
+    }
+
+    function updateCell(level: number) {
+      const cell = samplesAtCell(currentCell);
+      const code = cellCase(currentCell, level);
+      const segments = EDGE_TABLE[code].map(([a, b]) => `${a}–${b}`).join('，') || '无交点';
+      const corners = [cell.tl, cell.tr, cell.br, cell.bl].map((value) => value.toFixed(3)).join(' · ');
+      const { x, y, width, height } = {
+        x: xAt(cell.column), y: yAt(cell.row), width: CELL, height: CELL,
+      };
+      highlight.setAttribute('x', String(x));
+      highlight.setAttribute('y', String(y));
+      highlight.setAttribute('width', String(width));
+      highlight.setAttribute('height', String(height));
+      cellSelect.value = String(currentCell);
+      cellTitle.textContent = `单元 C${cell.column + 1} · R${cell.row + 1}`;
+      cellCode.textContent = `case ${code.toString().padStart(2, '0')} · 边 ${segments}`;
+      cellValues.textContent = `角点 TL · TR · BR · BL：${corners}；当前阈值 ${level.toFixed(2)}。`;
+    }
+
+    function render() {
+      const level = Number(threshold.value);
+      thresholdValue.value = level.toFixed(2);
+      thresholdReadout.value = `阈值 ${level.toFixed(2)}`;
+      if (!fieldDrawn) drawField();
+      drawGrid();
+      select(bandLayer).selectAll('*').remove();
+      if (mode === 'bands') drawBands();
+      drawLines(level);
+      updateCell(level);
+      root.querySelectorAll<HTMLButtonElement>('[data-mode]').forEach((button) => {
+        button.setAttribute('aria-pressed', String(button.dataset.mode === mode));
+      });
+    }
+
+    function setCell(index: number) {
+      currentCell = (index + (N - 1) * (N - 1)) % ((N - 1) * (N - 1));
+      render();
+    }
+
+    const onThreshold = () => render();
+    const onGrid = () => render();
+    const onCellSelect = () => setCell(Number(cellSelect.value));
+    const onPrev = () => setCell(currentCell - 1);
+    const onNext = () => setCell(currentCell + 1);
+    const onModeClick = (event: Event) => {
+      const button = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-mode]');
+      if (!button) return;
+      mode = button.dataset.mode === 'bands' ? 'bands' : 'contours';
+      render();
+    };
+    const onPlotClick = (event: MouseEvent) => {
+      const bounds = svg.getBoundingClientRect();
+      const view = svg.viewBox.baseVal;
+      const px = ((event.clientX - bounds.left) / bounds.width) * view.width;
+      const py = ((event.clientY - bounds.top) / bounds.height) * view.height;
+      const x = Math.max(0, Math.min(N - 2, Math.floor((px - EXTENT.x) / CELL)));
+      const y = Math.max(0, Math.min(N - 2, Math.floor((py - EXTENT.y) / CELL)));
+      setCell(y * (N - 1) + x);
+    };
+    const onResize = () => drawField();
+
+    threshold.addEventListener('input', onThreshold);
+    gridToggle.addEventListener('change', onGrid);
+    cellSelect.addEventListener('change', onCellSelect);
+    root.querySelector('[data-cell-prev]')?.addEventListener('click', onPrev);
+    root.querySelector('[data-cell-next]')?.addEventListener('click', onNext);
+    root.querySelector('.lab-legend')?.addEventListener('click', onModeClick);
+    svg.addEventListener('click', onPlotClick);
+    window.addEventListener('resize', onResize);
+    const resizeObserver = new ResizeObserver(onResize);
+    resizeObserver.observe(canvas.parentElement ?? canvas);
+    render();
+
+    dispose = () => {
+      threshold.removeEventListener('input', onThreshold);
+      gridToggle.removeEventListener('change', onGrid);
+      cellSelect.removeEventListener('change', onCellSelect);
+      root.querySelector('[data-cell-prev]')?.removeEventListener('click', onPrev);
+      root.querySelector('[data-cell-next]')?.removeEventListener('click', onNext);
+      root.querySelector('.lab-legend')?.removeEventListener('click', onModeClick);
+      svg.removeEventListener('click', onPlotClick);
+      window.removeEventListener('resize', onResize);
+      resizeObserver.disconnect();
+      select(bandLayer).selectAll('*').remove();
+      select(gridLayer).selectAll('*').remove();
+      select(lineLayer).selectAll('*').remove();
+      select(selectedSegments).selectAll('*').remove();
+      cellSelect.replaceChildren();
+    };
+  });
+
+  onLeave(() => {
+    dispose();
+    dispose = () => {};
+  });
+</script>
+
+<style>
+  .marching-lab__layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1.4fr) minmax(15rem, 0.6fr);
+    gap: clamp(1rem, 2.5vw, 1.5rem);
+    align-items: start;
+  }
+
+  .marching-lab__plot {
+    min-width: 0;
+  }
+
+  .marching-lab__chart {
+    position: relative;
+    aspect-ratio: 1;
+    background: #17131f;
+  }
+
+  .marching-lab__chart canvas,
+  .marching-lab__chart svg {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+  }
+
+  .marching-lab__chart canvas {
+    pointer-events: none;
+  }
+
+  .marching-lab__chart svg {
+    cursor: crosshair;
+  }
+
+  .marching-lab__legend {
+    margin-top: 0.75rem;
+    align-items: center;
+  }
+
+  .marching-lab__check {
+    display: inline-flex;
+    min-height: 2.5rem;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0 0.5rem;
+    color: var(--color-text-muted);
+    font-size: var(--text-sm);
+  }
+
+  .marching-lab__controls {
+    display: grid;
+    gap: 1rem;
+  }
+
+  .marching-lab__step-controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .marching-lab__cell-card {
+    padding: 1rem;
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-lg);
+    background: var(--color-accent-glass);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .marching-lab__cell-card h3 {
+    margin: 0.3rem 0;
+    font-size: var(--text-lg);
+  }
+
+  .marching-lab__cell-card p:last-child {
+    margin-bottom: 0;
+    color: var(--color-text-muted);
+    line-height: 1.55;
+  }
+
+  @media (max-width: 800px) {
+    .marching-lab__layout {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>

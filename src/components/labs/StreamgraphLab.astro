@@ -1,0 +1,410 @@
+---
+import { withBase } from '@/lib/url';
+---
+
+<section
+  class="lab-visual-card streamgraph-lab"
+  data-streamgraph-lab
+  data-names-url={withBase('/course-source/lesson-05/data/french_names.json')}
+  aria-labelledby="streamgraph-title"
+>
+  <div class="lab-visual-card__head">
+    <div>
+      <p class="lab-section-eyebrow">05.2 · 1900—2020 · 三个人名系列</p>
+      <h2 id="streamgraph-title">名字的潮汐：各系列起伏与整体体量</h2>
+      <p>流带厚度对应文件中的逐年 count；中心线随堆叠基线摆动，适合看形态，不适合凭垂直位置读单系列数值。</p>
+    </div>
+    <output data-name-summary class="lab-readout" aria-live="polite">读取法语人名序列…</output>
+  </div>
+
+  <div class="streamgraph-lab__controls">
+    <label class="lab-control" for="name-year">
+      <span>时间游标 <output data-year-readout>1980</output></span>
+      <input id="name-year" data-year type="range" min="1900" max="2020" value="1980" step="1" />
+    </label>
+    <div class="lab-legend" data-name-legend role="group" aria-label="高亮人名系列"></div>
+  </div>
+
+  <figure class="streamgraph-lab__figure">
+    <div class="lab-chart-surface streamgraph-lab__chart">
+      <svg data-stream-svg viewBox="0 0 1020 470" role="img" aria-label="Marie、Jean、Camille 三个名字在 1900 至 2020 年的 Streamgraph；流带厚度代表每年 count"></svg>
+    </div>
+    <figcaption>横轴为年份，颜色对应名字类别，流带厚度为该年 count。中心基线有意移动以减少整体波动，不能把层的位置当作从零起算的折线。</figcaption>
+  </figure>
+  <div class="streamgraph-lab__year-table" data-year-table aria-live="polite"></div>
+  <p class="lab-source-note">数据来自原课程 `lesson-05/data/french_names.json`：Marie、Jean、Camille 各 121 个年度 count，覆盖 1900—2020。源文件没有注明数据集名称、机构、单位分母或完整人名覆盖范围；本图只比较这三个系列提供的 count，不称其为法国全部新生儿份额或人口比例。</p>
+</section>
+
+<script>
+  import {
+    area,
+    axisBottom,
+    type Series,
+    type SeriesPoint,
+    scaleLinear,
+    scaleUtc,
+    schemeTableau10,
+    select,
+    stack,
+    stackOffsetWiggle,
+    stackOrderInsideOut,
+    utcFormat,
+  } from 'd3';
+  import { onLeave, onPage } from '@/lib/lifecycle';
+
+  interface NameYear {
+    year: number;
+    count: number;
+    date: Date;
+    [name: string]: number | Date;
+  }
+
+  interface NameData {
+    year_range: [number, number];
+    names: Record<string, { year: number; count: number }[]>;
+  }
+
+  let dispose = () => {};
+
+  onPage(() => {
+    dispose();
+    const root = document.querySelector<HTMLElement>('[data-streamgraph-lab]')!;
+    if (!root) return;
+    const source = root.dataset.namesUrl;
+    const svgElement = root.querySelector<SVGSVGElement>('[data-stream-svg]')!;
+    const range = root.querySelector<HTMLInputElement>('[data-year]')!;
+    const yearReadout = root.querySelector<HTMLOutputElement>('[data-year-readout]')!;
+    const summary = root.querySelector<HTMLOutputElement>('[data-name-summary]')!;
+    const legend = root.querySelector<HTMLElement>('[data-name-legend]')!;
+    const yearTable = root.querySelector<HTMLElement>('[data-year-table]')!;
+    if (!source || !svgElement || !range || !yearReadout || !summary || !legend || !yearTable) return;
+
+    const controller = new AbortController();
+    let disposed = false;
+    let rows: NameYear[] = [];
+    let seriesNames: string[] = [];
+    let selectedYear = 1980;
+    let pinnedName: string | undefined;
+    let hoverName: string | undefined;
+    let xScale = scaleUtc();
+    let innerWidth = 1;
+    const color = new Map<string, string>();
+
+    function activeName() {
+      return hoverName ?? pinnedName;
+    }
+
+    function updateSelection() {
+      if (!rows.length) return;
+      const row = rows.find((item) => item.year === selectedYear) ?? rows[0];
+      range.value = String(selectedYear);
+      yearReadout.value = String(selectedYear);
+      const active = activeName();
+      const values = active ? `${active}: ${row[active]}` : seriesNames.map((name) => `${name} ${row[name]}`).join(' · ');
+      summary.value = `${selectedYear} 年 · ${values}`;
+      const plot = select(svgElement).select<SVGGElement>('[data-stream-plot]');
+      const selection = xScale(new Date(Date.UTC(selectedYear, 0, 1)));
+      plot.select('[data-year-line]').attr('x1', selection).attr('x2', selection);
+      plot.select('[data-year-dot]').attr('cx', selection);
+      plot.selectAll<SVGPathElement, Series<NameYear, string>>('path.stream-layer')
+        .attr('opacity', (layer) => {
+          const focused = activeName();
+          return focused && layer.key !== focused ? 0.19 : 0.88;
+        })
+        .attr('stroke-width', (layer) => layer.key === activeName() ? 2.4 : 0.8);
+      yearTable.replaceChildren();
+      const label = document.createElement('strong');
+      label.textContent = `${selectedYear} 年`; 
+      yearTable.append(label);
+      for (const name of seriesNames) {
+        const entry = document.createElement('span');
+        entry.className = 'streamgraph-lab__year-value';
+        const swatch = document.createElement('i');
+        swatch.style.background = color.get(name) ?? '#777';
+        swatch.setAttribute('aria-hidden', 'true');
+        const value = document.createElement('b');
+        value.textContent = `${name} ${row[name]}`;
+        entry.append(swatch, value);
+        yearTable.append(entry);
+      }
+    }
+
+    function drawLegend() {
+      legend.replaceChildren();
+      for (const name of seriesNames) {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'streamgraph-lab__legend-button';
+        button.dataset.name = name;
+        button.setAttribute('aria-pressed', String(pinnedName === name));
+        const swatch = document.createElement('i');
+        swatch.style.background = color.get(name) ?? '#777';
+        swatch.setAttribute('aria-hidden', 'true');
+        const label = document.createElement('span');
+        label.textContent = name;
+        button.append(swatch, label);
+        button.addEventListener('click', () => {
+          pinnedName = pinnedName === name ? undefined : name;
+          hoverName = undefined;
+          drawLegend();
+          updateSelection();
+        });
+        button.addEventListener('pointerenter', () => {
+          hoverName = name;
+          updateSelection();
+        });
+        button.addEventListener('pointerleave', () => {
+          hoverName = undefined;
+          updateSelection();
+        });
+        button.addEventListener('focus', () => {
+          hoverName = name;
+          updateSelection();
+        });
+        button.addEventListener('blur', () => {
+          hoverName = undefined;
+          updateSelection();
+        });
+        legend.append(button);
+      }
+    }
+
+    function renderChart() {
+      const svg = select(svgElement);
+      svg.selectAll('*').remove();
+      const width = 1020;
+      const height = 470;
+      const margin = { top: 24, right: 26, bottom: 44, left: 24 };
+      innerWidth = width - margin.left - margin.right;
+      const innerHeight = height - margin.top - margin.bottom;
+      xScale = scaleUtc().domain([new Date(Date.UTC(rows[0].year, 0, 1)), new Date(Date.UTC(rows.at(-1)!.year, 0, 1))])
+        .range([0, innerWidth]);
+      const stacked = stack<NameYear, string>().keys(seriesNames)
+        .value((row, name) => Number(row[name]))
+        .order(stackOrderInsideOut)
+        .offset(stackOffsetWiggle)(rows);
+      const minY = Math.min(...stacked.flatMap((layer) => layer.flatMap((point) => point)));
+      const maxY = Math.max(...stacked.flatMap((layer) => layer.flatMap((point) => point)));
+      const yScale = scaleLinear().domain([minY, maxY]).range([innerHeight, 0]);
+      const shape = area<SeriesPoint<NameYear>>()
+        .x((_point, index) => xScale(rows[index].date))
+        .y0((point) => yScale(point[0]))
+        .y1((point) => yScale(point[1]));
+      const plot = svg.append('g').attr('data-stream-plot', '').attr('transform', `translate(${margin.left},${margin.top})`);
+      plot.append('rect').attr('width', innerWidth).attr('height', innerHeight)
+        .attr('fill', 'transparent').attr('pointer-events', 'all');
+      plot.append('g').attr('class', 'stream-x-axis').attr('transform', `translate(0,${innerHeight})`)
+        .call(axisBottom(xScale).ticks(9).tickFormat((date) => utcFormat('%Y')(date as Date)));
+      plot.selectAll<SVGPathElement, (typeof stacked)[number]>('path.stream-layer')
+        .data(stacked, (layer) => layer.key)
+        .join('path').attr('class', 'stream-layer')
+        .attr('data-name', (layer) => layer.key)
+        .attr('d', shape)
+        .attr('fill', (layer) => color.get(layer.key) ?? '#777')
+        .attr('fill-opacity', 0.88)
+        .attr('stroke', 'var(--color-bg)')
+        .attr('stroke-width', 0.8)
+        .attr('tabindex', 0).attr('role', 'button')
+        .attr('aria-label', (layer) => `${layer.key} 人名 Streamgraph 图层`)
+        .style('cursor', 'pointer')
+        .on('pointerenter', (_event, layer) => {
+          hoverName = layer.key;
+          updateSelection();
+        })
+        .on('pointerleave', () => {
+          hoverName = undefined;
+          updateSelection();
+        })
+        .on('focus', (_event, layer) => {
+          hoverName = layer.key;
+          updateSelection();
+        })
+        .on('blur', () => {
+          hoverName = undefined;
+          updateSelection();
+        })
+        .on('click', (_event, layer) => {
+          pinnedName = pinnedName === layer.key ? undefined : layer.key;
+          hoverName = undefined;
+          drawLegend();
+          updateSelection();
+        })
+        .on('keydown', (event: KeyboardEvent, layer) => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            pinnedName = pinnedName === layer.key ? undefined : layer.key;
+            hoverName = undefined;
+            drawLegend();
+            updateSelection();
+          }
+        });
+      plot.append('line').attr('data-year-line', '').attr('y1', 0).attr('y2', innerHeight)
+        .attr('stroke', 'var(--color-text)').attr('stroke-opacity', 0.58).attr('stroke-dasharray', '4 5')
+        .attr('pointer-events', 'none');
+      plot.append('circle').attr('data-year-dot', '').attr('cy', innerHeight + 13).attr('r', 5)
+        .attr('fill', 'var(--color-text)').attr('pointer-events', 'none');
+      plot.on('pointermove', (event: PointerEvent) => {
+        const matrix = (plot.node() as SVGGElement | null)?.getScreenCTM();
+        if (!matrix) return;
+        const point = new DOMPoint(event.clientX, event.clientY).matrixTransform(matrix.inverse());
+        const targetDate = xScale.invert(point.x);
+        const year = Math.max(rows[0].year, Math.min(rows.at(-1)!.year, targetDate.getUTCFullYear()));
+        setYear(year);
+      }).on('click', (event: MouseEvent) => {
+        const matrix = (plot.node() as SVGGElement | null)?.getScreenCTM();
+        if (!matrix) return;
+        const point = new DOMPoint(event.clientX, event.clientY).matrixTransform(matrix.inverse());
+        setYear(Math.round(xScale.invert(point.x).getUTCFullYear()));
+      });
+      updateSelection();
+    }
+
+    function setYear(year: number) {
+      selectedYear = Math.max(Number(range.min), Math.min(Number(range.max), year));
+      updateSelection();
+    }
+
+    const onRange = () => setYear(Number(range.value));
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        pinnedName = undefined;
+        hoverName = undefined;
+        drawLegend();
+        updateSelection();
+      }
+    };
+    range.addEventListener('input', onRange);
+    root.addEventListener('keydown', onKey);
+
+    fetch(source, { signal: controller.signal })
+      .then((response) => {
+        if (!response.ok) throw new Error(`无法读取人名数据 (${response.status})`);
+        return response.json() as Promise<NameData>;
+      })
+      .then((payload) => {
+        if (disposed) return;
+        seriesNames = Object.keys(payload.names);
+        if (seriesNames.length === 0) throw new Error('人名文件没有可用系列。');
+        seriesNames.forEach((name, index) => color.set(name, schemeTableau10[index % schemeTableau10.length]));
+        const records = new Map<number, NameYear>();
+        for (const name of seriesNames) {
+          for (const point of payload.names[name]) {
+            if (!records.has(point.year)) records.set(point.year, { year: point.year, count: 0, date: new Date(Date.UTC(point.year, 0, 1)) });
+            records.get(point.year)![name] = Number(point.count);
+          }
+        }
+        rows = [...records.values()].sort((a, b) => a.year - b.year);
+        if (rows.length !== 121 || rows.some((row) => seriesNames.some((name) => !Number.isFinite(row[name])))) {
+          throw new Error('人名时间范围或系列值不完整，未绘制不完整的 Streamgraph。');
+        }
+        range.min = String(payload.year_range[0]);
+        range.max = String(payload.year_range[1]);
+        selectedYear = Math.max(payload.year_range[0], Math.min(payload.year_range[1], selectedYear));
+        drawLegend();
+        renderChart();
+      })
+      .catch((cause: unknown) => {
+        if (cause instanceof DOMException && cause.name === 'AbortError') return;
+        summary.value = cause instanceof Error ? cause.message : '人名数据载入失败';
+      });
+
+    dispose = () => {
+      disposed = true;
+      controller.abort();
+      range.removeEventListener('input', onRange);
+      root.removeEventListener('keydown', onKey);
+      legend.replaceChildren();
+      yearTable.replaceChildren();
+      select(svgElement).selectAll('*').on('.pointerenter', null).on('.pointerleave', null).on('.focus', null).on('.blur', null).on('.click', null).on('.keydown', null).remove();
+    };
+  });
+
+  onLeave(() => {
+    dispose();
+    dispose = () => {};
+  });
+</script>
+
+<style>
+  .streamgraph-lab__controls {
+    display: grid;
+    grid-template-columns: minmax(13rem, 0.8fr) minmax(15rem, 1.2fr);
+    align-items: end;
+    gap: 1rem;
+    margin: 0.75rem 0 0.5rem;
+  }
+
+  .streamgraph-lab__figure {
+    margin: 0;
+  }
+
+  .streamgraph-lab__chart {
+    background:
+      radial-gradient(ellipse at 52% 52%, rgba(111, 91, 153, 0.22), transparent 66%),
+      color-mix(in srgb, var(--color-bg), #11131b 70%);
+  }
+
+  .streamgraph-lab__chart svg text {
+    fill: #f4f3f8;
+  }
+
+  .streamgraph-lab__chart .stream-x-axis path,
+  .streamgraph-lab__chart .stream-x-axis line {
+    stroke: rgba(245, 243, 250, 0.38);
+  }
+
+  .streamgraph-lab__figure figcaption {
+    margin: 0.55rem 0 0;
+    color: var(--color-text-muted);
+    font-size: var(--text-sm);
+    line-height: 1.55;
+  }
+
+  .streamgraph-lab__legend-button {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .streamgraph-lab__legend-button i,
+  .streamgraph-lab__year-value i {
+    flex: none;
+    width: 0.85rem;
+    height: 0.85rem;
+    border: 1px solid rgba(255, 255, 255, 0.35);
+    border-radius: 50%;
+  }
+
+  .streamgraph-lab__year-table {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.55rem 1rem;
+    min-height: 3.25rem;
+    margin-top: 0.75rem;
+    padding: 0.65rem 0.85rem;
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-lg);
+    background: var(--color-accent-glass);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .streamgraph-lab__year-value {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.38rem;
+    color: var(--color-text-muted);
+    font-size: var(--text-sm);
+  }
+
+  .streamgraph-lab__year-value b {
+    color: var(--color-text);
+    font-weight: 650;
+  }
+
+  @media (max-width: 720px) {
+    .streamgraph-lab__controls {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>

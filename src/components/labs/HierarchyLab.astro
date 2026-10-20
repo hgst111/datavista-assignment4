@@ -1,0 +1,481 @@
+---
+import { withBase } from '@/lib/url';
+---
+
+<section
+  class="lab-visual-card hierarchy-lab"
+  data-hierarchy-lab
+  data-students-url={withBase('/course-source/lesson-01/data/newstudent.csv')}
+  aria-labelledby="hierarchy-figure-title"
+>
+  <div class="lab-visual-card__head">
+    <div>
+      <p class="lab-section-eyebrow">同一层级 · 三种布局</p>
+      <h2 id="hierarchy-figure-title">从专业到班级，再到性别</h2>
+      <p>用同一份课程样本观察：连接、角度与面积分别怎样表达层级。</p>
+    </div>
+    <output data-hierarchy-total class="lab-readout" aria-live="polite">读取 80 条课程样本…</output>
+  </div>
+
+  <div class="hierarchy-lab__toolbar">
+    <div class="lab-view-switch" role="group" aria-label="层级图布局">
+      <button type="button" data-layout="tree" aria-pressed="true">Radial Tree</button>
+      <button type="button" data-layout="sunburst" aria-pressed="false">Sunburst</button>
+      <button type="button" data-layout="treemap" aria-pressed="false">Treemap</button>
+    </div>
+    <nav class="hierarchy-lab__crumbs" data-hierarchy-crumbs aria-label="当前层级位置"></nav>
+  </div>
+
+  <div class="hierarchy-lab__layout">
+    <div class="lab-chart-surface hierarchy-lab__chart">
+      <svg data-hierarchy-svg viewBox="0 0 840 560" role="img" aria-label="课程新生样本按专业、班级和性别分组的交互式层级图"></svg>
+    </div>
+    <aside class="hierarchy-lab__detail" data-hierarchy-detail aria-live="polite">
+      <p class="lab-section-eyebrow">节点详情</p>
+      <h3 data-selected-name>全部课程样本</h3>
+      <p data-selected-path>专业 → 班级 → 性别</p>
+      <strong data-selected-count>80 条记录</strong>
+      <p data-selected-note>点击节点查看该分组包含的样本数量。</p>
+      <button type="button" class="lab-control-button" data-reset>回到完整层级</button>
+    </aside>
+  </div>
+  <p class="lab-source-note">数据来自原课程 1.1 的 `newstudent.csv`（80 条合成学生样本）。CSV 没有单独的“专业”字段，因此根据班级名去掉末尾序号派生专业；下一级为原班级字段，末级为原性别字段。</p>
+</section>
+
+<script>
+  import {
+    arc,
+    csvParse,
+    hierarchy,
+    linkRadial,
+    partition,
+    schemeTableau10,
+    select,
+    treemap,
+    tree,
+    type HierarchyPointLink,
+    type HierarchyNode,
+    type HierarchyPointNode,
+    type HierarchyRectangularNode,
+  } from 'd3';
+  import { onLeave, onPage } from '@/lib/lifecycle';
+
+  interface Student {
+    班级: string;
+    性别: string;
+  }
+
+  interface HierarchyDatum {
+    name: string;
+    count?: number;
+    children?: HierarchyDatum[];
+  }
+
+  let dispose = () => {};
+
+  onPage(() => {
+    dispose();
+    const root = document.querySelector<HTMLElement>('[data-hierarchy-lab]')!;
+    if (!root) return;
+    const source = root.dataset.studentsUrl;
+    const svgElement = root.querySelector<SVGSVGElement>('[data-hierarchy-svg]')!;
+    const output = root.querySelector<HTMLOutputElement>('[data-hierarchy-total]')!;
+    const crumbs = root.querySelector<HTMLElement>('[data-hierarchy-crumbs]')!;
+    const nameReadout = root.querySelector<HTMLElement>('[data-selected-name]')!;
+    const pathReadout = root.querySelector<HTMLElement>('[data-selected-path]')!;
+    const countReadout = root.querySelector<HTMLElement>('[data-selected-count]')!;
+    const noteReadout = root.querySelector<HTMLElement>('[data-selected-note]')!;
+    const resetButton = root.querySelector<HTMLButtonElement>('[data-reset]')!;
+    if (!source || !svgElement || !output || !crumbs || !nameReadout || !pathReadout || !countReadout || !noteReadout || !resetButton) return;
+
+    const controller = new AbortController();
+    let disposed = false;
+    let dataset: HierarchyDatum | undefined;
+    let focusPath: string[] = [];
+    let selectedPath: string[] = [];
+    let layout: 'tree' | 'sunburst' | 'treemap' = 'tree';
+    const color = (name: string) => {
+      const palette = schemeTableau10;
+      const hash = [...name].reduce((value, character) => value + character.charCodeAt(0), 0);
+      return palette[hash % palette.length];
+    };
+
+    function findByPath(path: string[]): HierarchyDatum | undefined {
+      let current = dataset;
+      for (const name of path) current = current?.children?.find((child) => child.name === name);
+      return current;
+    }
+
+    function nodePath(datum: HierarchyDatum): string[] {
+      const result: string[] = [];
+      let current: HierarchyDatum | undefined = datum;
+      while (current && current.name !== '全部样本') {
+        result.unshift(current.name);
+        current = findParent(dataset, current);
+      }
+      return result;
+    }
+
+    function findParent(current: HierarchyDatum | undefined, target: HierarchyDatum): HierarchyDatum | undefined {
+      if (!current?.children) return undefined;
+      if (current.children.includes(target)) return current;
+      for (const child of current.children) {
+        const found = findParent(child, target);
+        if (found) return found;
+      }
+      return undefined;
+    }
+
+    function setSelection(path: string[]) {
+      selectedPath = path;
+      const datum = findByPath(path);
+      if (!datum) return;
+      const count = datum.count ?? (datum.children ? total(datum) : 0);
+      nameReadout.textContent = path.at(-1) ?? '全部课程样本';
+      pathReadout.textContent = path.length ? `全部样本 → ${path.join(' → ')}` : '专业 → 班级 → 性别';
+      countReadout.textContent = `${count} 条记录`;
+      noteReadout.textContent = path.length < 3
+        ? '点击有子节点的分组可向下钻取；使用上方路径返回上一级。'
+        : '叶节点是课程 CSV 中对应性别的样本计数。';
+    }
+
+    function total(datum: HierarchyDatum): number {
+      return datum.children?.reduce((sum, child) => sum + total(child), 0) ?? datum.count ?? 0;
+    }
+
+    function drawBreadcrumbs() {
+      crumbs.replaceChildren();
+      const levels = [{ label: '全部样本', path: [] as string[] }, ...focusPath.map((label, index) => ({ label, path: focusPath.slice(0, index + 1) }))];
+      levels.forEach((level, index) => {
+        if (index > 0) {
+          const separator = document.createElement('span');
+          separator.setAttribute('aria-hidden', 'true');
+          separator.textContent = '›';
+          crumbs.append(separator);
+        }
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.textContent = level.label;
+        button.setAttribute('aria-current', index === levels.length - 1 ? 'location' : 'false');
+        button.addEventListener('click', () => {
+          focusPath = level.path;
+          render();
+        }, { once: true });
+        crumbs.append(button);
+      });
+    }
+
+    function focusDatum(): HierarchyDatum {
+      return findByPath(focusPath) ?? dataset!;
+    }
+
+    function categoryFor(node: HierarchyNode<HierarchyDatum>): string {
+      let current = node;
+      while (current.depth > 1 && current.parent) current = current.parent;
+      return current.depth === 1 ? current.data.name : node.data.name;
+    }
+
+    function drill(path: string[], hasChildren: boolean) {
+      setSelection(path);
+      if (hasChildren) {
+        focusPath = path;
+        render();
+      } else {
+        render();
+      }
+    }
+
+    function renderTree(data: HierarchyDatum) {
+      const svg = select(svgElement);
+      const width = 840;
+      const height = 560;
+      const center = { x: width / 2, y: height / 2 };
+      const radius = 210;
+      const treeLayout = tree<HierarchyDatum>()
+        .size([Math.PI * 2, radius])
+        .separation((a, b) => ((a.parent === b.parent ? 1 : 1.5) / Math.max(1, a.depth)));
+      const rootNode = treeLayout(hierarchy(data).sum((node) => node.count ?? 0).sort((a, b) => (b.value ?? 0) - (a.value ?? 0)));
+      const radialLink = linkRadial<HierarchyPointLink<HierarchyDatum>, HierarchyPointNode<HierarchyDatum>>()
+        .angle((node) => node.x ?? 0).radius((node) => node.y ?? 0);
+      const plot = svg.append('g').attr('transform', `translate(${center.x},${center.y})`);
+      plot.selectAll('path.tree-link').data(rootNode.links()).join('path')
+        .attr('class', 'tree-link')
+        .attr('d', (link) => radialLink(link) ?? '')
+        .attr('fill', 'none')
+        .attr('stroke', (link) => color(categoryFor(link.target)))
+        .attr('stroke-opacity', 0.4)
+        .attr('stroke-width', 1.4);
+      const nodes = plot.selectAll<SVGGElement, HierarchyPointNode<HierarchyDatum>>('g.tree-node')
+        .data(rootNode.descendants()).join('g')
+        .attr('class', 'tree-node')
+        .attr('transform', (node) => `rotate(${node.x * 180 / Math.PI - 90}) translate(${node.y},0)`)
+        .attr('tabindex', 0)
+        .attr('role', 'button')
+        .attr('aria-label', (node) => `${nodePath(node.data).join('，') || '全部样本'}，${node.value ?? 0} 条记录`)
+        .style('cursor', 'pointer');
+      nodes.append('circle').attr('r', (node) => node.depth === 0 ? 7 : 5)
+        .attr('fill', (node) => node.depth === 0 ? 'var(--color-text)' : color(categoryFor(node)))
+        .attr('stroke', 'var(--color-bg)').attr('stroke-width', 1.5);
+      nodes.append('text')
+        .attr('dy', '0.32em')
+        .attr('x', (node) => node.x < Math.PI ? 9 : -9)
+        .attr('text-anchor', (node) => node.x < Math.PI ? 'start' : 'end')
+        .attr('transform', (node) => node.x >= Math.PI ? 'rotate(180)' : null)
+        .text((node) => node.data.name === '全部样本' ? '' : node.data.name);
+      nodes.on('click', (_event, node) => drill(nodePath(node.data), Boolean(node.children)))
+        .on('keydown', (event: KeyboardEvent, node) => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            drill(nodePath(node.data), Boolean(node.children));
+          }
+        });
+      nodes.filter((node) => node.data.name === selectedPath.at(-1)).select('circle')
+        .attr('r', 8).attr('stroke', 'var(--color-text)').attr('stroke-width', 2.4);
+    }
+
+    function renderSunburst(data: HierarchyDatum) {
+      const svg = select(svgElement);
+      const width = 840;
+      const height = 560;
+      const radius = 228;
+      const rootNode = partition<HierarchyDatum>().size([Math.PI * 2, radius])(
+        hierarchy(data).sum((node) => node.count ?? 0).sort((a, b) => (b.value ?? 0) - (a.value ?? 0)),
+      );
+      const shape = arc<HierarchyRectangularNode<HierarchyDatum>>().startAngle((node) => node.x0).endAngle((node) => node.x1)
+        .innerRadius((node) => node.y0).outerRadius((node) => Math.max(node.y0 + 1, node.y1 - 1));
+      const plot = svg.append('g').attr('transform', `translate(${width / 2},${height / 2})`);
+      const pieces = plot.selectAll<SVGPathElement, HierarchyRectangularNode<HierarchyDatum>>('path.sunburst-piece')
+        .data(rootNode.descendants()).join('path').attr('class', 'sunburst-piece')
+        .attr('d', (node) => shape(node) ?? '')
+        .attr('fill', (node) => node.depth === 0 ? 'color-mix(in srgb, var(--color-surface), var(--color-text) 12%)' : color(categoryFor(node)))
+        .attr('fill-opacity', (node) => node.depth === 1 ? 0.92 : node.depth === 2 ? 0.73 : 0.52)
+        .attr('stroke', 'var(--color-bg)').attr('stroke-width', 1.4)
+        .attr('tabindex', 0).attr('role', 'button')
+        .attr('aria-label', (node) => `${nodePath(node.data).join('，') || '全部样本'}，${node.value ?? 0} 条记录`)
+        .style('cursor', 'pointer');
+      pieces.append('title').text((node) => `${nodePath(node.data).join(' → ') || '全部样本'} · ${node.value ?? 0} 条`);
+      pieces.on('click', (_event, node) => drill(nodePath(node.data), Boolean(node.children)))
+        .on('keydown', (event: KeyboardEvent, node) => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            drill(nodePath(node.data), Boolean(node.children));
+          }
+        });
+      plot.append('text').attr('text-anchor', 'middle').attr('dominant-baseline', 'middle')
+        .attr('class', 'sunburst-center-label').text(data.name === '全部样本' ? '80 人' : `${total(data)} 人`);
+    }
+
+    function renderTreemap(data: HierarchyDatum) {
+      const svg = select(svgElement);
+      const width = 840;
+      const height = 560;
+      const margin = { top: 16, right: 16, bottom: 16, left: 16 };
+      const rootNode = treemap<HierarchyDatum>().size([width - margin.left - margin.right, height - margin.top - margin.bottom])
+        .paddingInner(4).paddingOuter(2).paddingTop((node) => node.depth === 0 ? 26 : 2)(
+          hierarchy(data).sum((node) => node.count ?? 0).sort((a, b) => (b.value ?? 0) - (a.value ?? 0)),
+        );
+      const plot = svg.append('g').attr('transform', `translate(${margin.left},${margin.top})`);
+      const cells = plot.selectAll<SVGGElement, HierarchyRectangularNode<HierarchyDatum>>('g.treemap-node')
+        .data(rootNode.descendants().filter((node) => node.depth > 0)).join('g')
+        .attr('class', 'treemap-node')
+        .attr('transform', (node) => `translate(${node.x0},${node.y0})`)
+        .attr('tabindex', 0).attr('role', 'button')
+        .attr('aria-label', (node) => `${nodePath(node.data).join('，')}，${node.value ?? 0} 条记录`)
+        .style('cursor', 'pointer');
+      cells.append('rect').attr('width', (node) => Math.max(0, node.x1 - node.x0))
+        .attr('height', (node) => Math.max(0, node.y1 - node.y0))
+        .attr('rx', (node) => node.depth === 1 ? 9 : 5)
+        .attr('fill', (node) => color(categoryFor(node)))
+        .attr('fill-opacity', (node) => node.depth === 1 ? 0.94 : node.depth === 2 ? 0.68 : 0.46)
+        .attr('stroke', 'var(--color-bg)').attr('stroke-width', 2);
+      cells.append('text').attr('x', 9).attr('y', 18).text((node) => node.data.name)
+        .attr('display', (node) => node.x1 - node.x0 < 48 || node.y1 - node.y0 < 24 ? 'none' : null)
+        .attr('fill', '#fff').attr('font-weight', 700);
+      cells.append('text').attr('x', 9).attr('y', 35).text((node) => `${node.value ?? 0} 条`)
+        .attr('display', (node) => node.depth === 3 || node.x1 - node.x0 < 58 || node.y1 - node.y0 < 42 ? 'none' : null)
+        .attr('fill', '#fff').attr('font-size', 11);
+      cells.append('title').text((node) => `${nodePath(node.data).join(' → ')} · ${node.value ?? 0} 条`);
+      cells.on('click', (_event, node) => drill(nodePath(node.data), Boolean(node.children)))
+        .on('keydown', (event: KeyboardEvent, node) => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            drill(nodePath(node.data), Boolean(node.children));
+          }
+        });
+    }
+
+    function render() {
+      if (!dataset) return;
+      const data = focusDatum();
+      select(svgElement).selectAll('*').remove();
+      root.querySelectorAll<HTMLButtonElement>('[data-layout]').forEach((button) => {
+        button.setAttribute('aria-pressed', String(button.dataset.layout === layout));
+      });
+      drawBreadcrumbs();
+      if (layout === 'tree') renderTree(data);
+      else if (layout === 'sunburst') renderSunburst(data);
+      else renderTreemap(data);
+      setSelection(selectedPath);
+    }
+
+    const onLayout = (event: Event) => {
+      const button = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-layout]');
+      if (!button) return;
+      const nextLayout = button.dataset.layout;
+      if (nextLayout === 'tree' || nextLayout === 'sunburst' || nextLayout === 'treemap') layout = nextLayout;
+      render();
+    };
+    const onReset = () => {
+      focusPath = [];
+      selectedPath = [];
+      render();
+    };
+    root.querySelector('.lab-view-switch')?.addEventListener('click', onLayout);
+    resetButton.addEventListener('click', onReset);
+
+    fetch(source, { signal: controller.signal })
+      .then((response) => {
+        if (!response.ok) throw new Error(`无法读取课程样本 (${response.status})`);
+        return response.text();
+      })
+      .then((csv) => {
+        if (disposed) return;
+        const rows = csvParse(csv) as unknown as Student[];
+        const majors = new Map<string, Map<string, Map<string, number>>>();
+        for (const row of rows) {
+          const className = row['班级']?.trim();
+          const gender = row['性别']?.trim();
+          if (!className || !gender) continue;
+          const major = className.replace(/\d+班$/, '');
+          if (!majors.has(major)) majors.set(major, new Map());
+          const classes = majors.get(major)!;
+          if (!classes.has(className)) classes.set(className, new Map());
+          const genders = classes.get(className)!;
+          genders.set(gender, (genders.get(gender) ?? 0) + 1);
+        }
+        dataset = {
+          name: '全部样本',
+          children: [...majors.entries()].map(([major, classes]) => ({
+            name: major,
+            children: [...classes.entries()].map(([className, genders]) => ({
+              name: className,
+              children: [...genders.entries()].map(([gender, count]) => ({ name: gender, count })),
+            })),
+          })),
+        };
+        output.value = `${rows.length} 条 · ${majors.size} 个专业 · ${[...majors.values()].reduce((sum, classes) => sum + classes.size, 0)} 个班级`;
+        setSelection([]);
+        render();
+      })
+      .catch((cause: unknown) => {
+        if (cause instanceof DOMException && cause.name === 'AbortError') return;
+        output.value = cause instanceof Error ? cause.message : '数据载入失败';
+      });
+
+    dispose = () => {
+      disposed = true;
+      controller.abort();
+      root.querySelector('.lab-view-switch')?.removeEventListener('click', onLayout);
+      resetButton.removeEventListener('click', onReset);
+      crumbs.replaceChildren();
+      select(svgElement).selectAll('*').remove();
+    };
+  });
+
+  onLeave(() => {
+    dispose();
+    dispose = () => {};
+  });
+</script>
+
+<style>
+  .hierarchy-lab__toolbar {
+    display: grid;
+    gap: 0.65rem;
+    margin: 0 0 0.85rem;
+  }
+
+  .hierarchy-lab__crumbs {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.4rem;
+    color: var(--color-text-muted);
+    font-size: var(--text-sm);
+  }
+
+  .hierarchy-lab__crumbs button {
+    min-height: 2.25rem;
+    padding: 0.25rem 0.55rem;
+    border: 0;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--color-accent-text);
+    cursor: pointer;
+    font: inherit;
+  }
+
+  .hierarchy-lab__crumbs button[aria-current='location'] {
+    color: var(--color-text);
+    font-weight: 700;
+  }
+
+  .hierarchy-lab__layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(12rem, 0.25fr);
+    gap: 1rem;
+    align-items: stretch;
+  }
+
+  .hierarchy-lab__chart {
+    min-width: 0;
+    min-height: 23rem;
+    background: color-mix(in srgb, var(--color-bg), transparent 13%);
+  }
+
+  .hierarchy-lab__chart text {
+    fill: var(--color-text);
+  }
+
+  .hierarchy-lab__detail {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.4rem;
+    padding: 1rem;
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-lg);
+    background: var(--color-accent-glass);
+  }
+
+  .hierarchy-lab__detail h3 {
+    margin: 0;
+    font-size: var(--text-xl);
+  }
+
+  .hierarchy-lab__detail p {
+    margin: 0;
+    color: var(--color-text-muted);
+    line-height: 1.5;
+  }
+
+  .hierarchy-lab__detail strong {
+    margin: 0.4rem 0;
+    font-size: var(--text-lg);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .hierarchy-lab__detail button {
+    margin-top: auto;
+  }
+
+  @media (max-width: 820px) {
+    .hierarchy-lab__layout {
+      grid-template-columns: 1fr;
+    }
+
+    .hierarchy-lab__detail button {
+      margin-top: 0.5rem;
+    }
+  }
+</style>

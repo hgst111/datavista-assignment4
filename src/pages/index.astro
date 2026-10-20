@@ -1,0 +1,313 @@
+---
+import { getCollection } from 'astro:content';
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import Header from '@/components/common/Header.astro';
+import Footer from '@/components/common/Footer.astro';
+import Container from '@/components/ui/Container.astro';
+import Button from '@/components/ui/Button.astro';
+import GlassCard from '@/components/ui/GlassCard.astro';
+import Section from '@/components/ui/Section.astro';
+import LabPreview from '@/components/labs/LabPreview.astro';
+import CourseHeroVisual from '@/components/course/CourseHeroVisual.astro';
+import { labDirectory } from '@/lib/course-lab-links';
+import { withBase } from '@/lib/url';
+
+const lessons = (await getCollection('courses')).sort((a, b) => a.data.order - b.data.order);
+const chapterDetails = [
+  {
+    number: 1,
+    title: '数据',
+    description: '从记录、字段和数据类型出发，理解可视化所依据的材料。',
+    preview: 'hierarchy',
+    visualNote: '80 条新生样本 · 班级与性别字段',
+  },
+  {
+    number: 2,
+    title: '数据可视化流程',
+    description: '把问题逐步转成数据处理、视觉编码与可检验的表达。',
+    preview: 'process',
+    visualNote: '数据 → 变换 → 编码 → 检查',
+  },
+  {
+    number: 3,
+    title: '色彩专题',
+    description: '认识颜色空间与色板类型，判断色彩如何传递数值和类别。',
+    preview: 'color',
+    visualNote: 'CIE Lab · 固定明度的 a*–b* 截面',
+    lab: { href: '/labs/lab-color/', label: '打开色彩实验' },
+  },
+  {
+    number: 4,
+    title: '低维数据可视化',
+    description: '从平面位置、曲线到等值线，观察数值关系如何成为几何结构。',
+    preview: 'marching',
+    visualNote: '标量场 · Marching Squares',
+    lab: { href: '/labs/marching-squares/', label: '打开等值线实验' },
+  },
+  {
+    number: 5,
+    title: '时序数据可视化',
+    description: '比较折线、日历、时间螺旋与流图怎样组织变化和周期。',
+    preview: 'time',
+    visualNote: '同一年度天气序列 · 三种时间布局',
+    lab: { href: '/labs/time-shapes/', label: '打开时间形态实验' },
+  },
+];
+const chapters = chapterDetails.map((chapter) => ({
+  ...chapter,
+  lessons: lessons.filter((lesson) => lesson.data.chapter === chapter.number),
+}));
+const first = lessons.find((item) => item.data.sectionNumber === '1.1');
+---
+
+<BaseLayout title="可视化导论" description="从数据、视觉编码和交互开始学习 D3 数据可视化。">
+  <Header />
+  <main id="main" tabindex="-1">
+    <section class="course-hero">
+      <Container size="xl">
+        <div class="course-hero__copy">
+          <div class="hero-meta">
+            <span>可视化导论</span><span>5 章 · 27 节</span><span>D3 · 数据 · 交互</span>
+          </div>
+          <p class="eyebrow">DATA → VISUAL FORM → INSIGHT</p>
+          <h1>让数据<br /><span>形成可读结构。</span></h1>
+          <p class="hero-summary">
+            从数据生成和处理出发，逐步学习视觉编码、色彩、低维表达与时间序列。
+            在讲解、原版 D3 代码和可操作实验之间，建立从数据到视觉表达的完整路径。
+          </p>
+          <div class="hero-actions">
+            <Button href={withBase('/course/')} variant="solid" size="lg">浏览五章课程</Button>
+            <Button href={withBase('/labs/')} variant="outline" size="lg">探索可视化实验室</Button>
+          </div>
+          <p class="hero-footnote">原课程讲解、关键代码、双语材料与 27 节演示均已归档。</p>
+        </div>
+        <GlassCard as="div" padding="lg" class="hero-visual-card">
+          <CourseHeroVisual />
+        </GlassCard>
+      </Container>
+    </section>
+
+    <Section
+      eyebrow="COURSE ROADMAP · 5 CHAPTERS"
+      title="从数据走向视觉表达"
+      subtitle="五章、27 节课程。每章用一种不同的视觉线索预览将要学习的结构。"
+      container="xl"
+      align="left"
+      spacing="md"
+    >
+      <div class="chapter-grid">
+        {chapters.map((chapter) => {
+          const firstSection = chapter.lessons[0];
+          return (
+            <article class={`chapter-card chapter-card--${chapter.number}`}>
+              <a class="chapter-card__main" href={withBase('/course/' + firstSection.id + '/')}>
+                <div class="chapter-card__visual">
+                  {chapter.preview === 'process' ? (
+                    <svg class="process-preview" viewBox="0 0 560 168" aria-hidden="true">
+                      <path class="process-preview__path" d="M64 83 C112 83 114 38 163 38 S217 83 267 83 321 128 370 128 420 83 498 83" />
+                      <path class="process-preview__axis" d="M42 144H518" />
+                      <g class="process-preview__node process-preview__node--data"><circle cx="64" cy="83" r="22" /><text x="64" y="87">数据</text></g>
+                      <g class="process-preview__node process-preview__node--transform"><circle cx="174" cy="38" r="22" /><text x="174" y="42">变换</text></g>
+                      <g class="process-preview__node process-preview__node--encode"><circle cx="284" cy="83" r="22" /><text x="284" y="87">编码</text></g>
+                      <g class="process-preview__node process-preview__node--check"><circle cx="394" cy="128" r="22" /><text x="394" y="132">检查</text></g>
+                      <g class="process-preview__node process-preview__node--result"><circle cx="498" cy="83" r="22" /><text x="498" y="87">表达</text></g>
+                    </svg>
+                  ) : (
+                    <LabPreview type={chapter.preview as 'color' | 'marching' | 'time' | 'hierarchy' | 'streamgraph'} />
+                  )}
+                </div>
+                <div class="chapter-card__copy">
+                  <div class="chapter-card__meta">
+                    <span>CHAPTER {String(chapter.number).padStart(2, '0')}</span>
+                    <span>{chapter.lessons.length} 节</span>
+                  </div>
+                  <h3>第 {chapter.number} 章 · {chapter.title}</h3>
+                  <p>{chapter.description}</p>
+                  <span class="chapter-card__visual-note">{chapter.visualNote}</span>
+                  <span class="card-action">从 {firstSection.data.sectionNumber} 开始阅读 <span aria-hidden="true">→</span></span>
+                </div>
+              </a>
+              {chapter.lab && (
+                <a class="chapter-card__lab" href={withBase(chapter.lab.href)}>{chapter.lab.label} ↗</a>
+              )}
+            </article>
+          );
+        })}
+      </div>
+    </Section>
+
+    <Section
+      eyebrow="SELECTED EXPERIMENTS · REAL COURSE DATA"
+      title="把视觉编码交给交互来解释"
+      subtitle="每张预览都来自对应实验的真实图形输出；打开作品即可操作参数、比较布局并查看课程关联。"
+      container="xl"
+      align="left"
+      spacing="md"
+    >
+      <div class="showcase-grid">
+        {labDirectory.map((lab, index) => (
+          <article class={`showcase-card showcase-card--${index + 1} glass-card`}>
+            <a class="showcase-card__visual" href={withBase(lab.href)} aria-label={`进入${lab.title}交互实验`}>
+              <LabPreview type={lab.preview} />
+              <span>{lab.kind} · 图形预览</span>
+            </a>
+            <div class="showcase-card__copy">
+              <p class="showcase-card__course">课程 {lab.courseSections.join(' · ')}</p>
+              <h3><a href={withBase(lab.href)}>{lab.title}</a></h3>
+              <p>{lab.description}</p>
+              <a class="card-action" href={withBase(lab.href)}>打开交互实验 <span aria-hidden="true">↗</span></a>
+            </div>
+          </article>
+        ))}
+      </div>
+      <div class="showcase-more">
+        <span>五个实验，共用课程中的色彩、标量场、层级与时间数据。</span>
+        <a href={withBase('/labs/')}>浏览完整实验室目录 →</a>
+      </div>
+    </Section>
+
+    <Section
+      eyebrow="START LEARNING"
+      title="选择你的下一步"
+      subtitle="从第一节开始顺序阅读，或直接进入课程目录、实验和原始资料。"
+      container="xl"
+      align="left"
+      spacing="md"
+    >
+      <div class="entry-grid">
+        {first && (
+          <GlassCard href={withBase('/course/' + first.id + '/')} padding="lg" class="entry-card entry-card--primary">
+            <span class="eyebrow">01.1 · RECOMMENDED START</span>
+            <h3>从数据生成开始</h3>
+            <p>{first.data.summary} 阅读原讲解和代码，并运行原始数据加载演示。</p>
+            <span class="card-action">开始第一节 →</span>
+          </GlassCard>
+        )}
+        <GlassCard href={withBase('/course/')} padding="lg" class="entry-card">
+          <span class="eyebrow">COURSE MAP</span><h3>浏览全部 27 节</h3>
+          <p>查看五章完整目录，按顺序学习或跳转到指定知识点。</p><span class="card-action">打开课程目录 →</span>
+        </GlassCard>
+        <GlassCard href={withBase('/labs/')} padding="lg" class="entry-card">
+          <span class="eyebrow">INTERACTIVE LABS</span><h3>进入实验室</h3>
+          <p>调节参数、选择数据并对照不同的视觉布局。</p><span class="card-action">探索五个实验 →</span>
+        </GlassCard>
+        <GlassCard href={withBase('/resources/')} padding="lg" class="entry-card">
+          <span class="eyebrow">COURSE MATERIALS</span><h3>查阅课程资料</h3>
+          <p>打开双语讲义、数据集、补充材料和原始课程快照。</p><span class="card-action">查看资料来源 →</span>
+        </GlassCard>
+      </div>
+    </Section>
+  </main>
+  <Footer />
+</BaseLayout>
+
+<style>
+  .course-hero { min-height: min(50rem, calc(100vh - 5rem)); display: flex; align-items: center; padding-block: var(--space-3xl); }
+  .course-hero :global(.container) { display: grid; grid-template-columns: minmax(0, 1.12fr) minmax(21rem, .88fr); align-items: center; gap: clamp(var(--space-xl), 6vw, 5.5rem); }
+  .hero-meta { display: flex; flex-wrap: wrap; gap: var(--space-lg); margin-bottom: var(--space-2xl); color: var(--color-text-muted); font-size: var(--text-sm); }
+  .eyebrow { margin: 0; color: var(--color-accent-text); font-size: var(--text-xs); font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
+  .course-hero h1 { margin: var(--space-md) 0 var(--space-xl); font-size: clamp(3.2rem, 7vw, 6.6rem); line-height: .98; letter-spacing: -.06em; }
+  .course-hero h1 span { color: var(--color-text-muted); font-weight: 500; }
+  .hero-summary { max-width: 47rem; margin-bottom: var(--space-xl); color: var(--color-text-muted); font-size: var(--text-lg); line-height: 1.75; }
+  .hero-actions { display: flex; flex-wrap: wrap; gap: var(--space-md); }
+  .hero-footnote { margin: var(--space-lg) 0 0; color: var(--color-text-muted); font-size: var(--text-sm); }
+  .hero-visual-card { border: 1px solid var(--glass-border); background: radial-gradient(ellipse at 83% 14%, var(--color-accent-glass), transparent 55%), var(--glass-bg); }
+
+  .chapter-grid { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: var(--space-md); }
+  .chapter-card { grid-column: span 4; min-width: 0; overflow: hidden; border: 1px solid var(--glass-border); border-radius: var(--radius-xl); background: var(--glass-bg); box-shadow: var(--glass-shadow); backdrop-filter: blur(var(--glass-blur-sm)) saturate(var(--glass-sat)); transition: transform var(--transition-base), border-color var(--transition-base); }
+  .chapter-card:nth-child(4), .chapter-card:nth-child(5) { grid-column: span 6; }
+  .chapter-card:hover { transform: translateY(-3px); border-color: color-mix(in srgb, var(--color-accent), transparent 42%); }
+  .chapter-card__main { display: block; height: 100%; color: inherit; text-decoration: none; }
+  .chapter-card__visual { min-height: 10rem; padding: .75rem .75rem 0; overflow: hidden; }
+  .chapter-card__visual :global(.lab-preview) { min-height: 9rem; height: 100%; border-radius: var(--radius-lg); }
+  .chapter-card__visual :global(.lab-preview svg) { height: 10rem; object-fit: cover; }
+  .process-preview { display: block; width: 100%; height: 10rem; border-radius: var(--radius-lg); background: radial-gradient(ellipse at 40% 40%, rgba(112, 95, 194, .23), transparent 60%), color-mix(in srgb, var(--color-bg), #141525 24%); }
+  .process-preview__path { fill: none; stroke: color-mix(in srgb, var(--color-accent), #49d6c4 40%); stroke-width: 2; stroke-dasharray: 5 6; }
+  .process-preview__axis { fill: none; stroke: var(--glass-border); stroke-width: 1; }
+  .process-preview__node circle { fill: var(--glass-bg-solid); stroke-width: 2; }
+  .process-preview__node text { fill: var(--color-text); font-family: var(--font-sans); font-size: 11px; text-anchor: middle; }
+  .process-preview__node--data circle { stroke: #4fc7aa; }
+  .process-preview__node--transform circle { stroke: #6d9fe9; }
+  .process-preview__node--encode circle { stroke: #b18beb; }
+  .process-preview__node--check circle { stroke: #f1bc54; }
+  .process-preview__node--result circle { stroke: #ec7975; }
+  .chapter-card__copy { padding: 1rem 1.1rem 1.15rem; }
+  .chapter-card__meta { display: flex; justify-content: space-between; color: var(--color-accent-text); font-size: var(--text-xs); font-weight: 700; letter-spacing: .09em; }
+  .chapter-card h3 { margin: .55rem 0 .45rem; font-size: var(--text-xl); line-height: 1.25; }
+  .chapter-card__copy > p { min-height: 3.15rem; margin: 0 0 .65rem; color: var(--color-text-muted); font-size: var(--text-sm); line-height: 1.55; }
+  .chapter-card__visual-note { display: block; margin-bottom: .75rem; color: var(--color-text-muted); font-size: var(--text-xs); }
+  .card-action { display: inline-flex; align-items: center; gap: .3rem; color: var(--color-accent-text); font-size: var(--text-sm); font-weight: 700; text-decoration: none; }
+  .chapter-card__lab { display: flex; justify-content: center; margin: 0 .75rem .75rem; padding: .55rem; border: 1px solid var(--glass-border); border-radius: var(--radius-md); color: var(--color-accent-text); font-size: var(--text-sm); font-weight: 650; text-decoration: none; transition: background-color var(--transition-fast); }
+  .chapter-card__lab:hover { background: var(--color-accent-glass); }
+
+  .showcase-grid { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: var(--space-md); }
+  .showcase-card { grid-column: span 4; min-width: 0; overflow: hidden; border: 1px solid var(--glass-border); transition: transform var(--transition-base), border-color var(--transition-base); }
+  .showcase-card:hover { transform: translateY(-3px); border-color: color-mix(in srgb, var(--color-accent), transparent 40%); }
+  .showcase-card--1, .showcase-card--2 { grid-column: span 6; }
+  .showcase-card__visual { position: relative; display: block; padding: .65rem .65rem 0; text-decoration: none; }
+  .showcase-card__visual :global(.lab-preview) { min-height: 11rem; border-radius: var(--radius-lg); }
+  .showcase-card__visual :global(.lab-preview svg) { min-height: 11rem; height: 100%; object-fit: cover; }
+  .showcase-card__visual > span { position: absolute; right: 1rem; bottom: .5rem; padding: .32rem .5rem; border: 1px solid rgba(255,255,255,.18); border-radius: var(--radius-full); background: rgba(20,19,27,.75); color: white; font-size: .65rem; backdrop-filter: blur(10px); }
+  .showcase-card__copy { padding: .9rem 1rem 1.05rem; }
+  .showcase-card__course { margin: 0 0 .3rem; color: var(--color-accent-text); font-size: var(--text-xs); font-weight: 750; letter-spacing: .07em; }
+  .showcase-card h3 { margin: 0; font-size: var(--text-lg); }
+  .showcase-card h3 a { color: var(--color-text); text-decoration: none; }
+  .showcase-card__copy > p:not(.showcase-card__course) { min-height: 2.9rem; margin: .45rem 0 .8rem; color: var(--color-text-muted); font-size: var(--text-sm); line-height: 1.55; }
+  .showcase-more { display: flex; justify-content: space-between; gap: var(--space-lg); margin-top: var(--space-lg); color: var(--color-text-muted); font-size: var(--text-sm); }
+  .showcase-more a { color: var(--color-accent-text); font-weight: 700; white-space: nowrap; }
+
+  .entry-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--space-md); }
+  .entry-card { min-height: 15rem; }
+  .entry-card h3 { margin: .55rem 0; font-size: var(--text-xl); }
+  .entry-card p { color: var(--color-text-muted); font-size: var(--text-sm); line-height: 1.6; }
+  .entry-card :global(.card-action) { margin-top: auto; }
+  .entry-card--primary { background: radial-gradient(ellipse at 80% 15%, var(--color-accent-glass), transparent 60%), var(--glass-bg); }
+
+  /* Give dense light-mode content a neutral glass surface. The Aurora remains
+     visible through it, while the rose layer no longer colors whole cards. */
+  :global(html[data-theme='light']) .hero-visual-card,
+  :global(html[data-theme='light']) .chapter-card,
+  :global(html[data-theme='light']) .showcase-card,
+  :global(html[data-theme='light']) .entry-card {
+    --glass-sat: 120%;
+    background-color: color-mix(in srgb, var(--color-surface) 50%, var(--glass-bg-solid) 50%);
+  }
+
+  @media (prefers-reduced-transparency: reduce) {
+    :global(html[data-theme='light']) .hero-visual-card,
+    :global(html[data-theme='light']) .chapter-card,
+    :global(html[data-theme='light']) .showcase-card,
+    :global(html[data-theme='light']) .entry-card {
+      background-color: var(--glass-bg);
+    }
+  }
+
+  @media (max-width: 960px) {
+    .course-hero :global(.container) { grid-template-columns: minmax(0, 1fr) minmax(19rem, .9fr); gap: var(--space-xl); }
+    .chapter-card { grid-column: span 6; }
+    .chapter-card:nth-child(4), .chapter-card:nth-child(5) { grid-column: span 6; }
+    .showcase-card, .showcase-card--1, .showcase-card--2 { grid-column: span 6; }
+    .entry-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  }
+  @media (max-width: 720px) {
+    .course-hero { min-height: 0; padding-block: var(--space-2xl); }
+    .course-hero :global(.container) { grid-template-columns: 1fr; }
+    .hero-meta { margin-bottom: var(--space-lg); }
+    .course-hero h1 { font-size: clamp(3.15rem, 12vw, 5rem); }
+    .hero-visual-card { padding: var(--space-md); }
+    .chapter-card, .chapter-card:nth-child(4), .chapter-card:nth-child(5) { grid-column: 1 / -1; }
+    .chapter-card__visual { min-height: 8rem; }
+    .chapter-card__visual :global(.lab-preview), .chapter-card__visual :global(.lab-preview svg), .process-preview { min-height: 8rem; height: 8rem; }
+    .chapter-card__copy > p { min-height: 0; }
+    .showcase-card, .showcase-card--1, .showcase-card--2 { grid-column: 1 / -1; }
+    .showcase-card__visual :global(.lab-preview), .showcase-card__visual :global(.lab-preview svg) { min-height: 10rem; }
+    .showcase-card__copy > p:not(.showcase-card__course) { min-height: 0; }
+    .showcase-more { align-items: flex-start; flex-direction: column; gap: var(--space-sm); }
+    .entry-grid { grid-template-columns: 1fr; }
+    .entry-card { min-height: 0; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .chapter-card, .showcase-card { transition: none; }
+  }
+</style>

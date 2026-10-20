@@ -1,0 +1,604 @@
+---
+import { withBase } from '@/lib/url';
+---
+
+<section
+  class="lab-visual-card time-shapes"
+  data-time-shapes
+  data-weather-url={withBase('/course-source/lesson-05/data/weather_2024.csv')}
+  aria-labelledby="time-shapes-title"
+>
+  <div class="lab-visual-card__head">
+    <div>
+      <p class="lab-section-eyebrow">同一序列 · 三种时间结构</p>
+      <h2 id="time-shapes-title">把 2024 年的天气放进不同时间坐标</h2>
+      <p>折线强调连续变化，日历显露星期与月份结构，螺旋让一年周期沿角度展开。</p>
+    </div>
+    <output class="lab-readout" data-date-readout aria-live="polite">读取天气数据…</output>
+  </div>
+
+  <div class="lab-controls time-shapes__controls">
+    <label class="lab-control" for="time-metric">
+      <span>观察指标</span>
+      <select id="time-metric" data-metric>
+        <option value="temp_max">每日最高温 · °C</option>
+        <option value="rain_mm">每日降雨 · mm</option>
+      </select>
+    </label>
+    <label class="lab-control time-shapes__date" for="time-date">
+      <span>选中日期</span>
+      <input id="time-date" data-date type="date" min="2024-01-01" max="2024-12-31" value="2024-01-01" />
+    </label>
+    <button class="lab-control-button" data-play type="button" aria-pressed="false">▶ 逐日播放</button>
+    <div class="lab-control time-shapes__scrubber">
+      <label for="time-day">时间游标 <output data-day-value>第 1 / 366 天</output></label>
+      <input id="time-day" data-day type="range" min="0" max="365" value="0" step="1" />
+    </div>
+  </div>
+
+  <div class="time-shapes__views">
+    <figure class="time-view time-view--line">
+      <figcaption><span>01 / 线性时间</span><strong>沿日期比较变化幅度</strong></figcaption>
+      <div class="lab-chart-surface"><svg data-line-chart viewBox="0 0 900 300" role="img" aria-label="2024 年逐日天气折线图"></svg></div>
+    </figure>
+    <div class="time-shapes__lower">
+      <figure class="time-view time-view--calendar">
+        <figcaption><span>02 / 日历坐标</span><strong>周与月份构成的节律</strong></figcaption>
+        <div class="lab-chart-surface"><svg data-calendar-chart viewBox="0 0 820 190" role="img" aria-label="2024 年天气日历热图，周为列，星期为行"></svg></div>
+      </figure>
+      <figure class="time-view time-view--spiral">
+        <figcaption><span>03 / 阿基米德螺旋</span><strong>一圈约对应一个月份</strong></figcaption>
+        <div class="lab-chart-surface"><svg data-spiral-chart viewBox="0 0 560 560" role="img" aria-label="2024 年逐日天气阿基米德螺旋图，一年沿十二圈展开"></svg></div>
+      </figure>
+    </div>
+  </div>
+  <div class="time-shapes__legend" data-weather-legend aria-label="数值颜色说明"></div>
+  <p class="lab-source-note">数据来自原课程 `weather_2024.csv`：2024 年 366 条记录；原课程讲义标注为北京每日最高温。降雨列以 mm 为单位；原文件没有提供气象站、采集机构或逐日来源信息。温度颜色以本序列年均值 <output data-temp-mean>—</output> °C 为中心表达冷暖位置，降雨使用顺序色阶；颜色之外还提供日期与精确值。</p>
+  <p class="time-shapes__error" data-weather-error role="status" hidden></p>
+</section>
+
+<script>
+  import {
+    axisBottom,
+    axisLeft,
+    bisector,
+    curveLinear,
+    curveMonotoneX,
+    csvParse,
+    extent,
+    interpolatePuBuGn,
+    interpolateRdYlBu,
+    line,
+    max,
+    mean,
+    scaleDiverging,
+    scaleLinear,
+    scaleSequential,
+    scaleUtc,
+    select,
+    utcFormat,
+  } from 'd3';
+  import { onLeave, onPage } from '@/lib/lifecycle';
+
+  interface WeatherDay {
+    date: Date;
+    key: string;
+    temp_max: number;
+    rain_mm: number;
+    index: number;
+    dayOfYear: number;
+    week: number;
+    weekday: number;
+  }
+
+  let dispose = () => {};
+
+  onPage(() => {
+    dispose();
+    const root = document.querySelector<HTMLElement>('[data-time-shapes]')!;
+    if (!root) return;
+    const error = root.querySelector<HTMLElement>('[data-weather-error]')!;
+    const source = root.dataset.weatherUrl;
+    if (!source || !error) return;
+
+    const controller = new AbortController();
+    let timer: number | undefined;
+    let data: WeatherDay[] = [];
+    let selected = 0;
+    let metric: 'temp_max' | 'rain_mm' = 'temp_max';
+    let playing = false;
+    let lineX = scaleUtc();
+    let lineY = scaleLinear();
+    let lineHeight = 242;
+    const temperatureColor = scaleDiverging((t: number) => interpolateRdYlBu(1 - t));
+    const rainColor = scaleSequential(interpolatePuBuGn);
+    let disposed = false;
+    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const dateInput = root.querySelector<HTMLInputElement>('[data-date]')!;
+    const dayInput = root.querySelector<HTMLInputElement>('[data-day]')!;
+    const metricInput = root.querySelector<HTMLSelectElement>('[data-metric]')!;
+    const playButton = root.querySelector<HTMLButtonElement>('[data-play]')!;
+    const dateReadout = root.querySelector<HTMLOutputElement>('[data-date-readout]')!;
+    const dayValue = root.querySelector<HTMLOutputElement>('[data-day-value]')!;
+    const meanReadout = root.querySelector<HTMLOutputElement>('[data-temp-mean]')!;
+    const lineElement = root.querySelector<SVGSVGElement>('[data-line-chart]')!;
+    const calendarElement = root.querySelector<SVGSVGElement>('[data-calendar-chart]')!;
+    const spiralElement = root.querySelector<SVGSVGElement>('[data-spiral-chart]')!;
+    const legend = root.querySelector<HTMLElement>('[data-weather-legend]')!;
+    if (!dateInput || !dayInput || !metricInput || !playButton || !dateReadout || !dayValue || !meanReadout || !lineElement || !calendarElement || !spiralElement || !legend) return;
+
+    function colorFor(day: WeatherDay): string {
+      const value = day[metric];
+      return metric === 'temp_max' ? temperatureColor(value) : rainColor(value);
+    }
+
+    function renderLine() {
+      const svg = select(lineElement);
+      svg.selectAll('*').remove();
+      const width = 900;
+      const height = 300;
+      const margin = { top: 20, right: 26, bottom: 38, left: 58 };
+      const innerWidth = width - margin.left - margin.right;
+      const innerHeight = height - margin.top - margin.bottom;
+      const getValue = (item: WeatherDay) => item[metric];
+      const [minValue, maxValue] = extent(data, getValue) as [number, number];
+      const pad = (maxValue - minValue) * 0.08 || 1;
+      const x = scaleUtc().domain(extent(data, (item) => item.date) as [Date, Date]).range([0, innerWidth]);
+      const y = scaleLinear().domain([minValue - pad, maxValue + pad]).nice().range([innerHeight, 0]);
+      lineX = x;
+      lineY = y;
+      lineHeight = innerHeight;
+      const plot = svg.append('g').attr('transform', `translate(${margin.left},${margin.top})`);
+      plot.append('g').attr('class', 'time-axis').attr('transform', `translate(0,${innerHeight})`)
+        .call(axisBottom(x).ticks(8).tickFormat((date) => utcFormat('%m月')(date as Date)));
+      plot.append('g').attr('class', 'time-axis').call(axisLeft(y).ticks(5));
+      const gradient = svg.append('defs').append('linearGradient').attr('id', 'weather-line-gradient')
+        .attr('x1', '0%').attr('x2', '100%').attr('y1', '0%').attr('y2', '0%');
+      for (let i = 0; i <= 36; i += 1) {
+        const day = data[Math.round((data.length - 1) * i / 36)];
+        gradient.append('stop').attr('offset', `${i / 36 * 100}%`).attr('stop-color', colorFor(day));
+      }
+      const linePath = line<WeatherDay>()
+        .x((item) => x(item.date))
+        .y((item) => y(getValue(item)))
+        .curve(curveMonotoneX);
+      plot.append('path').datum(data).attr('d', linePath)
+        .attr('fill', 'none').attr('stroke', 'url(#weather-line-gradient)')
+        .attr('stroke-width', 3).attr('stroke-linecap', 'round');
+      plot.append('line').attr('data-selection-line', '')
+        .attr('y1', 0).attr('y2', innerHeight)
+        .attr('stroke', 'var(--color-text)').attr('stroke-opacity', 0.45)
+        .attr('stroke-dasharray', '3 4');
+      plot.append('circle').attr('data-selection-point', '').attr('r', 5)
+        .attr('fill', 'var(--color-text)').attr('stroke', 'var(--color-bg)').attr('stroke-width', 2);
+      plot.append('rect').attr('class', 'line-hit-area')
+        .attr('width', innerWidth).attr('height', innerHeight)
+        .attr('fill', 'transparent').style('cursor', 'crosshair')
+        .on('pointermove', (event: PointerEvent) => {
+          const [px] = select(event.currentTarget as SVGRectElement).node()
+            ? pointerInSvg(event, event.currentTarget as SVGRectElement)
+            : [0];
+          const index = bisector<WeatherDay, Date>((item) => item.date).center(data, x.invert(px));
+          setSelected(index);
+        })
+        .on('click', (event: MouseEvent) => {
+          const [px] = pointerInSvg(event, event.currentTarget as SVGRectElement);
+          setSelected(bisector<WeatherDay, Date>((item) => item.date).center(data, x.invert(px)));
+        });
+      updateSelectionMarks();
+      const metricLabel = metric === 'temp_max' ? '最高温（°C）' : '降雨（mm）';
+      svg.append('text').attr('class', 'axis-label')
+        .attr('x', margin.left).attr('y', 14).text(metricLabel);
+    }
+
+    function pointerInSvg(event: MouseEvent | PointerEvent, element: SVGGraphicsElement): [number, number] {
+      const point = new DOMPoint(event.clientX, event.clientY);
+      const matrix = element.getScreenCTM();
+      if (!matrix) return [0, 0];
+      const local = point.matrixTransform(matrix.inverse());
+      return [local.x, local.y];
+    }
+
+    function renderCalendar() {
+      const svg = select(calendarElement);
+      svg.selectAll('*').remove();
+      const left = 54;
+      const top = 36;
+      const cell = 11;
+      const gap = 3;
+      const monthNames = ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'];
+      const maxColumn = max(data, (day) => day.week) ?? 52;
+      for (let month = 0; month < 12; month += 1) {
+        const first = data.find((day) => day.date.getUTCMonth() === month && day.date.getUTCDate() === 1);
+        if (!first) continue;
+        svg.append('text').attr('x', left + first.week * (cell + gap)).attr('y', 20).text(monthNames[month]);
+      }
+      const weekdayNames = ['一', '二', '三', '四', '五', '六', '日'];
+      weekdayNames.forEach((name, index) => {
+        if (index % 2 === 0) svg.append('text').attr('x', 32).attr('y', top + index * (cell + gap) + 10).attr('text-anchor', 'end').text(name);
+      });
+      const cells = svg.append('g').selectAll<SVGRectElement, WeatherDay>('rect.calendar-day')
+        .data(data).join('rect').attr('class', 'calendar-day')
+        .attr('x', (day) => left + day.week * (cell + gap))
+        .attr('y', (day) => top + day.weekday * (cell + gap))
+        .attr('width', cell).attr('height', cell).attr('rx', 2)
+        .attr('fill', colorFor)
+        .attr('tabindex', (day) => day.index === selected ? 0 : -1).attr('role', 'button')
+        .attr('aria-label', (day) => `${day.key} · ${metric === 'temp_max' ? `${day.temp_max.toFixed(1)} °C` : `${day.rain_mm.toFixed(1)} mm`}`)
+        .style('cursor', 'pointer');
+      cells.append('title').text((day) => `${day.key} · ${metric === 'temp_max' ? `${day.temp_max.toFixed(1)} °C` : `${day.rain_mm.toFixed(1)} mm`}`);
+      cells.on('pointerenter', (_event, day) => setSelected(day.index))
+        .on('click', (_event, day) => setSelected(day.index))
+        .on('focus', (_event, day) => setSelected(day.index))
+        .on('keydown', (event: KeyboardEvent, day) => {
+          const delta = event.key === 'ArrowRight' ? 1
+            : event.key === 'ArrowLeft' ? -1
+              : event.key === 'ArrowDown' ? 7
+                : event.key === 'ArrowUp' ? -7 : 0;
+          if (delta !== 0) {
+            event.preventDefault();
+            setSelected(day.index + delta);
+            select(calendarElement).selectAll<SVGRectElement, WeatherDay>('rect.calendar-day')
+              .filter((item) => item.index === selected).node()?.focus();
+            return;
+          }
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            setSelected(day.index);
+          }
+        });
+      svg.append('text').attr('x', left + maxColumn * (cell + gap) + cell).attr('y', top + 7 * (cell + gap) + 7).text('2024');
+    }
+
+    function renderSpiral() {
+      const svg = select(spiralElement);
+      svg.selectAll('*').remove();
+      const center = 280;
+      const innerRadius = 34;
+      const outerRadius = 245;
+      const turns = 12;
+      const plot = svg.append('g').attr('transform', `translate(${center},${center})`);
+      for (let month = 1; month <= turns; month += 1) {
+        const radius = innerRadius + (outerRadius - innerRadius) * month / turns;
+        plot.append('circle').attr('r', radius).attr('fill', 'none')
+          .attr('stroke', 'var(--color-text)').attr('stroke-opacity', 0.10)
+          .attr('stroke-dasharray', month % 3 === 0 ? 'none' : '2 5');
+      }
+      const coords = data.map((day) => {
+        const progress = day.index / (data.length - 1);
+        const theta = progress * Math.PI * 2 * turns - Math.PI / 2;
+        const radius = innerRadius + progress * (outerRadius - innerRadius);
+        return { ...day, x: Math.cos(theta) * radius, y: Math.sin(theta) * radius };
+      });
+      plot.append('path').datum(coords).attr('d', line<typeof coords[number]>()
+        .x((point) => point.x).y((point) => point.y).curve(curveLinear))
+        .attr('fill', 'none').attr('stroke', 'var(--color-text-muted)')
+        .attr('stroke-opacity', 0.28).attr('stroke-width', 1.2);
+      plot.selectAll<SVGCircleElement, (typeof coords)[number]>('circle.spiral-day')
+        .data(coords).join('circle').attr('class', 'spiral-day')
+        .attr('cx', (point) => point.x).attr('cy', (point) => point.y)
+        .attr('r', (point) => point.index === selected ? 6 : 3.15)
+        .attr('fill', colorFor)
+        .attr('stroke', (point) => point.index === selected ? 'var(--color-text)' : 'none')
+        .attr('stroke-width', 1.5)
+        .attr('aria-hidden', 'true');
+      const months = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12'];
+      for (let month = 0; month < 12; month += 1) {
+        const day = data.find((point) => point.date.getUTCMonth() === month && point.date.getUTCDate() === 1);
+        if (!day) continue;
+        const point = coords[day.index];
+        // Each month's first day starts a new radial turn. Keep its label just
+        // outside that turn instead of normalizing all labels to one outer ring.
+        const radius = Math.hypot(point.x, point.y);
+        const labelScale = (radius + 13) / radius;
+        plot.append('text').attr('x', point.x * labelScale).attr('y', point.y * labelScale)
+          .attr('text-anchor', 'middle').attr('dominant-baseline', 'middle')
+          .attr('class', 'spiral-month').text(months[month]);
+      }
+      plot.append('circle').attr('data-spiral-marker', '').attr('r', 8)
+        .attr('fill', 'none').attr('stroke', 'var(--color-text)').attr('stroke-width', 2.5)
+        .attr('pointer-events', 'none');
+      svg.on('pointermove', (event: PointerEvent) => {
+        const bounds = spiralElement.getBoundingClientRect();
+        const px = (event.clientX - bounds.left) / bounds.width * 560 - center;
+        const py = (event.clientY - bounds.top) / bounds.height * 560 - center;
+        const nearest = coords.reduce((best, point) => {
+          const distance = (point.x - px) ** 2 + (point.y - py) ** 2;
+          return distance < best.distance ? { index: point.index, distance } : best;
+        }, { index: 0, distance: Infinity });
+        if (nearest.distance < 1200) setSelected(nearest.index);
+      });
+      updateSpiralSelection(coords);
+    }
+
+    function updateSelectionMarks() {
+      const item = data[selected];
+      if (!item) return;
+      const svg = select(lineElement);
+      const lineMark = svg.select<SVGLineElement>('[data-selection-line]');
+      const pointMark = svg.select<SVGCircleElement>('[data-selection-point]');
+      if (lineMark.empty() || pointMark.empty()) return;
+      const plotX = lineX(item.date);
+      const plotY = lineY(item[metric]);
+      lineMark.attr('x1', plotX).attr('x2', plotX);
+      pointMark.attr('cx', plotX).attr('cy', plotY).attr('fill', colorFor(item));
+      lineMark.attr('y2', lineHeight);
+    }
+
+    function updateSpiralSelection(coords?: { index: number; x: number; y: number }[]) {
+      const marker = select(spiralElement).select<SVGCircleElement>('[data-spiral-marker]');
+      const points = coords ?? data.map((day) => {
+        const progress = day.index / (data.length - 1);
+        const theta = progress * Math.PI * 2 * 12 - Math.PI / 2;
+        const radius = 34 + progress * 211;
+        return { index: day.index, x: Math.cos(theta) * radius, y: Math.sin(theta) * radius };
+      });
+      const point = points[selected];
+      if (point) marker.attr('cx', point.x).attr('cy', point.y);
+      select(spiralElement).selectAll<SVGCircleElement, WeatherDay>('circle.spiral-day')
+        .attr('r', (day) => day.index === selected ? 6 : 3.15)
+        .attr('stroke', (day) => day.index === selected ? 'var(--color-text)' : 'none');
+    }
+
+    function setSelected(index: number) {
+      selected = Math.max(0, Math.min(data.length - 1, index));
+      const day = data[selected];
+      if (!day) return;
+      dateInput.value = day.key;
+      dayInput.value = String(selected);
+      dayValue.value = `第 ${selected + 1} / ${data.length} 天`;
+      const label = metric === 'temp_max' ? `${day.temp_max.toFixed(1)} °C` : `${day.rain_mm.toFixed(1)} mm`;
+      dateReadout.value = `${day.key} · ${label}`;
+      select(calendarElement).selectAll<SVGRectElement, WeatherDay>('rect.calendar-day')
+        .attr('stroke', (item) => item.index === selected ? 'var(--color-text)' : 'none')
+        .attr('stroke-width', (item) => item.index === selected ? 2 : 0)
+        .attr('tabindex', (item) => item.index === selected ? 0 : -1);
+      updateSelectionMarks();
+      updateSpiralSelection();
+    }
+
+    function renderLegend() {
+      const gradientId = 'weather-legend-gradient';
+      legend.innerHTML = metric === 'temp_max'
+        ? `<span>低于年均 ${mean(data, (day) => day.temp_max)?.toFixed(1)} °C</span><span class="time-legend-ramp"><i id="${gradientId}"></i></span><span>高于年均</span>`
+        : `<span>0 mm</span><span class="time-legend-ramp time-legend-ramp--rain"><i id="${gradientId}"></i></span><span>${(max(data, (day) => day.rain_mm) ?? 0).toFixed(1)} mm</span>`;
+      const ramp = legend.querySelector<HTMLElement>(`#${gradientId}`);
+      if (ramp) ramp.style.background = metric === 'temp_max'
+        ? `linear-gradient(90deg, ${interpolateRdYlBu(1)}, ${interpolateRdYlBu(0.5)}, ${interpolateRdYlBu(0)})`
+        : `linear-gradient(90deg, ${interpolatePuBuGn(0)}, ${interpolatePuBuGn(0.5)}, ${interpolatePuBuGn(1)})`;
+    }
+
+    function render() {
+      if (!data.length) return;
+      metric = metricInput.value === 'rain_mm' ? 'rain_mm' : 'temp_max';
+      const temperatureMean = mean(data, (day) => day.temp_max) ?? 0;
+      const [temperatureMin, temperatureMax] = extent(data, (day) => day.temp_max) as [number, number];
+      const temperatureSpan = Math.max(temperatureMean - temperatureMin, temperatureMax - temperatureMean, 1);
+      temperatureColor.domain([temperatureMean - temperatureSpan, temperatureMean, temperatureMean + temperatureSpan]);
+      rainColor.domain([0, max(data, (day) => day.rain_mm) || 1]);
+      renderLine();
+      renderCalendar();
+      renderSpiral();
+      renderLegend();
+      meanReadout.value = (mean(data, (day) => day.temp_max) ?? 0).toFixed(1);
+      setSelected(selected);
+    }
+
+    function stopPlayback() {
+      if (timer !== undefined) window.clearInterval(timer);
+      timer = undefined;
+      playing = false;
+      playButton.setAttribute('aria-pressed', 'false');
+      playButton.textContent = '▶ 逐日播放';
+    }
+
+    function startPlayback() {
+      if (reducedMotion.matches) return;
+      if (playing) {
+        stopPlayback();
+        return;
+      }
+      playing = true;
+      playButton.setAttribute('aria-pressed', 'true');
+      playButton.textContent = 'Ⅱ 暂停播放';
+      timer = window.setInterval(() => setSelected((selected + 1) % data.length), 800);
+    }
+
+    const onDate = () => {
+      const index = data.findIndex((day) => day.key === dateInput.value);
+      if (index >= 0) setSelected(index);
+    };
+    const onDay = () => setSelected(Number(dayInput.value));
+    const onMetric = () => render();
+    const onPlay = () => startPlayback();
+    const onReducedMotion = () => {
+      if (reducedMotion.matches) stopPlayback();
+      playButton.disabled = reducedMotion.matches;
+      playButton.title = reducedMotion.matches ? '已启用减少动态效果偏好；日期仍可手动浏览。' : '';
+    };
+
+    dateInput.addEventListener('input', onDate);
+    dayInput.addEventListener('input', onDay);
+    metricInput.addEventListener('change', onMetric);
+    playButton.addEventListener('click', onPlay);
+    reducedMotion.addEventListener('change', onReducedMotion);
+    onReducedMotion();
+
+    fetch(source, { signal: controller.signal })
+      .then((response) => {
+        if (!response.ok) throw new Error(`无法读取天气数据 (${response.status})`);
+        return response.text();
+      })
+      .then((csv) => {
+        if (disposed) return;
+        const rows = csvParse(csv);
+        const firstWeekday = (new Date(Date.UTC(2024, 0, 1)).getUTCDay() + 6) % 7;
+        data = rows.map((row, index) => {
+          const key = row.date ?? '';
+          const [year, month, dayOfMonth] = key.split('-').map(Number);
+          const date = new Date(Date.UTC(year, month - 1, dayOfMonth));
+          const dayOfYear = Math.round((date.valueOf() - Date.UTC(year, 0, 1)) / 86_400_000);
+          return {
+            key,
+            date,
+            temp_max: Number(row.temp_max),
+            rain_mm: Number(row.rain_mm),
+            index,
+            dayOfYear,
+            weekday: (date.getUTCDay() + 6) % 7,
+            week: Math.floor((dayOfYear + firstWeekday) / 7),
+          };
+        }).filter((day) => Number.isFinite(day.date.valueOf()) && Number.isFinite(day.temp_max) && Number.isFinite(day.rain_mm));
+        if (data.length !== 366) throw new Error(`预期 366 天数据，实际读取 ${data.length} 行`);
+        error.hidden = true;
+        render();
+      })
+      .catch((cause: unknown) => {
+        if (cause instanceof DOMException && cause.name === 'AbortError') return;
+        error.hidden = false;
+        error.textContent = cause instanceof Error ? cause.message : '天气数据载入失败。';
+        dateReadout.value = '数据载入失败';
+      });
+
+    dispose = () => {
+      disposed = true;
+      controller.abort();
+      stopPlayback();
+      dateInput.removeEventListener('input', onDate);
+      dayInput.removeEventListener('input', onDay);
+      metricInput.removeEventListener('change', onMetric);
+      playButton.removeEventListener('click', onPlay);
+      reducedMotion.removeEventListener('change', onReducedMotion);
+      select(lineElement).selectAll('*').remove();
+      select(calendarElement).selectAll('*').remove();
+      select(spiralElement).on('pointermove', null).selectAll('*').remove();
+    };
+  });
+
+  onLeave(() => {
+    dispose();
+    dispose = () => {};
+  });
+</script>
+
+<style>
+  .time-shapes__controls {
+    align-items: end;
+    padding: 0.9rem;
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-lg);
+    background: color-mix(in srgb, var(--glass-bg), var(--color-bg) 18%);
+  }
+
+  .time-shapes__date {
+    min-width: 10rem;
+  }
+
+  .time-shapes__scrubber {
+    flex: 1 1 16rem;
+  }
+
+  .time-shapes__views {
+    display: grid;
+    gap: 1rem;
+  }
+
+  .time-shapes__lower {
+    display: grid;
+    grid-template-columns: minmax(0, 1.15fr) minmax(18rem, 0.85fr);
+    gap: 1rem;
+    align-items: start;
+  }
+
+  .time-view {
+    min-width: 0;
+    margin: 0;
+  }
+
+  .time-view figcaption {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 0.3rem 1rem;
+    padding: 0.7rem 0.15rem;
+    color: var(--color-text-muted);
+    font-size: var(--text-sm);
+  }
+
+  .time-view figcaption span {
+    color: var(--color-accent-text);
+    font-size: var(--text-xs);
+    font-weight: 750;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .time-view figcaption strong {
+    color: var(--color-text);
+    font-weight: 650;
+  }
+
+  .time-view--calendar .lab-chart-surface {
+    background: color-mix(in srgb, var(--color-bg), transparent 16%);
+  }
+
+  .time-view--spiral .lab-chart-surface {
+    background: color-mix(in srgb, var(--color-bg), #141520 60%);
+  }
+
+  .time-view--spiral svg text {
+    fill: #f6f4fa;
+  }
+
+  .time-view .time-axis path,
+  .time-view .time-axis line {
+    stroke: var(--color-text-muted);
+    stroke-opacity: 0.4;
+  }
+
+  .time-view .axis-label {
+    fill: var(--color-text);
+  }
+
+  .time-shapes__legend {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 0.7rem;
+    margin: 1rem 0 0;
+    color: var(--color-text-muted);
+    font-size: var(--text-xs);
+  }
+
+  .time-legend-ramp {
+    display: block;
+    width: min(15rem, 38vw);
+    height: 0.75rem;
+    overflow: hidden;
+    border-radius: var(--radius-full);
+  }
+
+  .time-legend-ramp i {
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+
+  .time-shapes__error {
+    padding: 0.75rem;
+    border: 1px solid var(--color-error);
+    border-radius: var(--radius-md);
+    color: var(--color-error);
+  }
+
+  @media (max-width: 900px) {
+    .time-shapes__lower {
+      grid-template-columns: 1fr;
+    }
+
+    .time-view--spiral .lab-chart-surface {
+      max-width: 34rem;
+      margin-inline: auto;
+    }
+  }
+</style>

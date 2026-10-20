@@ -1,0 +1,291 @@
+---
+import { readFileSync } from 'node:fs';
+import { csvParse, interpolateRdYlBu, line, max, min, scaleLinear } from 'd3';
+
+const csv = readFileSync(
+  new URL('../../../public/course-source/lesson-05/data/weather_2024.csv', import.meta.url),
+  'utf8',
+);
+const weather = csvParse(csv).map((row, index) => ({
+  index,
+  date: row.date ?? '',
+  value: Number(row.temp_max),
+}));
+const low = min(weather, (day) => day.value) ?? 0;
+const high = max(weather, (day) => day.value) ?? 1;
+const lineX = scaleLinear().domain([0, weather.length - 1]).range([28, 304]);
+const lineY = scaleLinear().domain([low - 2, high + 2]).range([156, 42]);
+const linePath = line<(typeof weather)[number]>()
+  .x((day) => lineX(day.index))
+  .y((day) => lineY(day.value))(weather) ?? '';
+const samples = weather.map((day) => {
+  const progress = day.index / (weather.length - 1);
+  const angle = progress * Math.PI * 24 - Math.PI / 2;
+  const radius = 9 + progress * 83;
+  return {
+    date: day.date,
+    value: day.value,
+    lineX: lineX(day.index),
+    lineY: lineY(day.value),
+    spiralX: 460 + Math.cos(angle) * radius,
+    spiralY: 104 + Math.sin(angle) * radius,
+    color: interpolateRdYlBu(1 - (day.value - low) / Math.max(1, high - low)),
+  };
+});
+const selectedIndex = 182;
+const selected = samples[selectedIndex];
+const payload = JSON.stringify(samples);
+const monthTicks = [
+  { label: 'JAN', index: 0 },
+  { label: 'APR', index: 91 },
+  { label: 'JUL', index: 182 },
+  { label: 'OCT', index: 274 },
+];
+---
+
+<figure class="course-hero-visual" data-course-hero data-points={payload}>
+  <div class="hero-visual__heading">
+    <div>
+      <p>ONE YEAR · TWO VIEWS</p>
+      <strong>2024 天气样本</strong>
+    </div>
+    <span class="hero-visual__unit">最高温 · °C</span>
+  </div>
+
+  <svg class="hero-visual__chart" viewBox="0 0 600 224" aria-hidden="true">
+    <defs>
+      <linearGradient id="hero-line-gradient" x1="0" y1="0" x2="1" y2="0">
+        <stop offset="0%" stop-color="#3288bd" />
+        <stop offset="50%" stop-color="#ffffbf" />
+        <stop offset="100%" stop-color="#d53e4f" />
+      </linearGradient>
+    </defs>
+
+    <g class="hero-visual__line-view">
+      <text class="hero-visual__view-label" x="28" y="20">折线 · 连续变化</text>
+      <path class="hero-visual__grid" d="M28 64H304 M28 108H304 M28 152H304" />
+      <path class="hero-visual__line" d={linePath} />
+      <circle class="hero-visual__line-point" cx={selected.lineX} cy={selected.lineY} r="5" />
+      <path class="hero-visual__baseline" d="M28 158H304" />
+      {monthTicks.map((tick) => (
+        <text class="hero-visual__tick" x={lineX(tick.index)} y="176" text-anchor="middle">
+          {tick.label}
+        </text>
+      ))}
+    </g>
+
+    <g class="hero-visual__spiral-view">
+      <text class="hero-visual__view-label" x="370" y="20">螺旋 · 年内周期</text>
+      <circle cx="460" cy="104" r="28" fill="none" stroke="var(--hero-grid)" stroke-dasharray="2 4" />
+      <circle cx="460" cy="104" r="56" fill="none" stroke="var(--hero-grid)" stroke-dasharray="2 4" />
+      <path
+        class="hero-visual__spiral-track"
+        d={line<{ spiralX: number; spiralY: number }>()
+          .x((point) => point.spiralX)
+          .y((point) => point.spiralY)(samples) ?? ''}
+      />
+      {samples.map((point, index) => (
+        <circle
+          class="hero-visual__spiral-dot"
+          cx={point.spiralX}
+          cy={point.spiralY}
+          r="1.7"
+          fill={point.color}
+          data-index={index}
+        />
+      ))}
+      <circle class="hero-visual__spiral-point" cx={selected.spiralX} cy={selected.spiralY} r="5" />
+      <text class="hero-visual__center-label" x="460" y="101" text-anchor="middle">2024</text>
+      <text class="hero-visual__center-label" x="460" y="113" text-anchor="middle">366 日</text>
+    </g>
+
+    <g class="hero-visual__legend" transform="translate(36 204)">
+      <rect x="0" y="0" width="115" height="5" rx="2.5" fill="url(#hero-line-gradient)" />
+      <text x="124" y="6">螺旋色彩映射最高温</text>
+    </g>
+  </svg>
+
+  <div class="hero-visual__controls">
+    <label for="course-weather-day">选择日期</label>
+    <input
+      id="course-weather-day"
+      type="range"
+      min="0"
+      max={samples.length - 1}
+      value={selectedIndex}
+      aria-label="选择 2024 年天气数据中的日期"
+    />
+    <output class="hero-visual__reading" for="course-weather-day" aria-live="polite">
+      <time data-selected-date datetime={selected.date}>{selected.date}</time>
+      <strong><span data-selected-value>{selected.value.toFixed(1)}</span> °C</strong>
+    </output>
+  </div>
+  <figcaption>同一日期在折线与时间螺旋中同步定位。数据来自课程原始天气 CSV；以原始记录为准。</figcaption>
+</figure>
+
+<script is:inline data-astro-rerun>
+  (() => {
+    const figure = document.querySelector('[data-course-hero]');
+    if (figure && !figure.dataset.ready) {
+      figure.dataset.ready = 'true';
+      const samples = JSON.parse(figure.dataset.points || '[]');
+      const slider = figure.querySelector('input[type="range"]');
+      const linePoint = figure.querySelector('.hero-visual__line-point');
+      const spiralPoint = figure.querySelector('.hero-visual__spiral-point');
+      const dateOutput = figure.querySelector('[data-selected-date]');
+      const valueOutput = figure.querySelector('[data-selected-value]');
+
+      const selectDay = (rawIndex) => {
+        const index = Math.max(0, Math.min(samples.length - 1, Number(rawIndex) || 0));
+        const point = samples[index];
+        linePoint?.setAttribute('cx', String(point.lineX));
+        linePoint?.setAttribute('cy', String(point.lineY));
+        spiralPoint?.setAttribute('cx', String(point.spiralX));
+        spiralPoint?.setAttribute('cy', String(point.spiralY));
+        if (dateOutput) {
+          dateOutput.textContent = point.date;
+          dateOutput.setAttribute('datetime', point.date);
+        }
+        if (valueOutput) valueOutput.textContent = Number(point.value).toFixed(1);
+      };
+
+      slider?.addEventListener('input', () => selectDay(slider.value));
+      figure.querySelectorAll('[data-index]').forEach((dot) => {
+        dot.addEventListener('pointerenter', () => {
+          if (slider) slider.value = dot.dataset.index || '0';
+          selectDay(dot.dataset.index);
+        });
+        dot.addEventListener('focus', () => selectDay(dot.dataset.index));
+      });
+    }
+  })();
+</script>
+
+<style>
+  .course-hero-visual {
+    --hero-grid: color-mix(in srgb, var(--color-text-muted), transparent 78%);
+    margin: 0;
+    color: var(--color-text);
+  }
+
+  .hero-visual__heading,
+  .hero-visual__controls {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-md);
+  }
+
+  .hero-visual__heading > div {
+    display: grid;
+    gap: .3rem;
+  }
+
+  .hero-visual__heading p,
+  .hero-visual__unit,
+  .hero-visual__controls > label {
+    margin: 0;
+    color: var(--color-text-muted);
+    font-size: var(--text-xs);
+    letter-spacing: .08em;
+  }
+
+  .hero-visual__heading p { font-weight: 700; }
+  .hero-visual__heading strong { font-size: var(--text-lg); }
+  .hero-visual__unit { white-space: nowrap; }
+
+  .hero-visual__chart {
+    display: block;
+    width: 100%;
+    margin: .65rem 0 .25rem;
+    overflow: visible;
+  }
+
+  .hero-visual__grid,
+  .hero-visual__baseline {
+    fill: none;
+    stroke: var(--hero-grid);
+    stroke-width: 1;
+  }
+
+  .hero-visual__line {
+    fill: none;
+    stroke: #e97870;
+    stroke-width: 2.5;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    vector-effect: non-scaling-stroke;
+  }
+
+  .hero-visual__spiral-track {
+    fill: none;
+    stroke: var(--hero-grid);
+    stroke-width: 1.2;
+    vector-effect: non-scaling-stroke;
+  }
+
+  .hero-visual__spiral-dot { opacity: .9; }
+
+  .hero-visual__line-point,
+  .hero-visual__spiral-point {
+    fill: var(--color-bg);
+    stroke: var(--color-text);
+    stroke-width: 2.5;
+    vector-effect: non-scaling-stroke;
+    transition: cx 160ms ease-out, cy 160ms ease-out;
+  }
+
+  .hero-visual__view-label,
+  .hero-visual__tick,
+  .hero-visual__legend text {
+    fill: var(--color-text-muted);
+    font-family: var(--font-sans);
+    font-size: 9px;
+  }
+
+  .hero-visual__view-label { font-size: 10px; font-weight: 650; }
+  .hero-visual__center-label { fill: var(--color-text-muted); font-size: 8px; }
+
+  .hero-visual__controls {
+    display: grid;
+    grid-template-columns: auto minmax(5rem, 1fr) auto;
+    padding-top: .7rem;
+    border-top: 1px solid var(--glass-border);
+  }
+
+  .hero-visual__controls input {
+    width: 100%;
+    min-width: 4rem;
+    accent-color: var(--color-accent);
+  }
+
+  .hero-visual__reading {
+    display: grid;
+    gap: .05rem;
+    justify-items: end;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .hero-visual__reading time { color: var(--color-text-muted); font-size: var(--text-xs); }
+  .hero-visual__reading strong { font-size: var(--text-sm); }
+
+  .course-hero-visual figcaption {
+    margin-top: .55rem;
+    color: var(--color-text-muted);
+    font-size: .7rem;
+    line-height: 1.45;
+  }
+
+  @media (max-width: 520px) {
+    .hero-visual__chart { margin-block: .35rem; }
+    .hero-visual__controls { grid-template-columns: 1fr auto; }
+    .hero-visual__controls > label { grid-column: 1 / -1; }
+    .hero-visual__reading { grid-column: 2; grid-row: 2; }
+    .hero-visual__controls input { grid-column: 1; grid-row: 2; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .hero-visual__line-point,
+    .hero-visual__spiral-point { transition: none; }
+  }
+</style>

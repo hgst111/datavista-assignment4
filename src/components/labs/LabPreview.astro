@@ -1,0 +1,242 @@
+---
+import { readFileSync } from 'node:fs';
+import {
+  area,
+  csvParse,
+  hierarchy,
+  interpolateMagma,
+  interpolateRdYlBu,
+  lab,
+  line,
+  max,
+  min,
+  scaleLinear,
+  schemeTableau10,
+  stack,
+  stackOffsetWiggle,
+  stackOrderInsideOut,
+  treemap,
+} from 'd3';
+
+interface Props {
+  type: 'color' | 'marching' | 'time' | 'hierarchy' | 'streamgraph';
+}
+
+const { type } = Astro.props;
+const sourceFile = (path: string) => readFileSync(new URL(`../../../public/course-source/${path}`, import.meta.url), 'utf8');
+
+const colorSamples = type === 'color'
+  ? Array.from({ length: 18 }, (_, row) => Array.from({ length: 26 }, (_, column) => {
+      const a = -104 + column * 8;
+      const b = 68 - row * 8;
+      const color = lab(62, a, b).rgb();
+      return { column, row, color: color.displayable() ? color.formatHex() : 'url(#preview-outside-gamut)' };
+    })).flat()
+  : [];
+
+const marching = (() => {
+  if (type !== 'marching') return undefined;
+  const N = 8;
+  const step = 18;
+  const start = { x: 92, y: 14 };
+  const field = (x: number, y: number) => Math.exp(-((x - 3.5) ** 2 + (y - 4) ** 2) / 6)
+    + 0.3 * Math.exp(-((x - 1) ** 2 + (y - 6) ** 2) / 3);
+  const grid = Array.from({ length: N }, (_, y) => Array.from({ length: N }, (_, x) => field(x, y)));
+  const cases: number[][][] = [
+    [], [[3, 0]], [[0, 1]], [[3, 1]], [[1, 2]], [[3, 0], [1, 2]], [[0, 2]], [[3, 2]],
+    [[2, 3]], [[2, 0]], [[0, 1], [2, 3]], [[2, 1]], [[1, 3]], [[1, 0]], [[0, 3]], [],
+  ];
+  const threshold = 0.5;
+  const xAt = (x: number) => start.x + x * step;
+  const yAt = (y: number) => start.y + y * step;
+  const tiles: { x: number; y: number; fill: string }[] = [];
+  const segments: string[] = [];
+  for (let y = 0; y < N - 1; y += 1) {
+    for (let x = 0; x < N - 1; x += 1) {
+      const values = [grid[y][x], grid[y][x + 1], grid[y + 1][x + 1], grid[y + 1][x]];
+      const average = values.reduce((sum, value) => sum + value, 0) / values.length;
+      tiles.push({ x: xAt(x), y: yAt(y), fill: interpolateMagma(average / (max(grid.flat()) ?? 1)) });
+      const [tl, tr, br, bl] = values;
+      const code = (bl > threshold ? 1 : 0) | (br > threshold ? 2 : 0) | (tr > threshold ? 4 : 0) | (tl > threshold ? 8 : 0);
+      const edges = [
+        [[xAt(x), yAt(y + 1), bl], [xAt(x), yAt(y), tl]],
+        [[xAt(x), yAt(y + 1), bl], [xAt(x + 1), yAt(y + 1), br]],
+        [[xAt(x + 1), yAt(y + 1), br], [xAt(x + 1), yAt(y), tr]],
+        [[xAt(x), yAt(y), tl], [xAt(x + 1), yAt(y), tr]],
+      ];
+      for (const [edgeA, edgeB] of cases[code]) {
+        const point = (edge: number) => {
+          const [first, second] = edges[edge];
+          const t = first[2] === second[2] ? 0.5 : (threshold - first[2]) / (second[2] - first[2]);
+          return [first[0] + (second[0] - first[0]) * t, first[1] + (second[1] - first[1]) * t];
+        };
+        const a = point(edgeA);
+        const b = point(edgeB);
+        segments.push(`M${a[0]},${a[1]}L${b[0]},${b[1]}`);
+      }
+    }
+  }
+  const gridX = Array.from({ length: N }, (_, index) => xAt(index));
+  const gridY = Array.from({ length: N }, (_, index) => yAt(index));
+  return { tiles, segments: segments.join(''), gridX, gridY, step };
+})();
+
+const weatherPreview = (() => {
+  if (type !== 'time') return undefined;
+  const rows = csvParse(sourceFile('lesson-05/data/weather_2024.csv')).map((row, index) => ({
+    index,
+    date: row.date ?? '',
+    value: Number(row.temp_max),
+  }));
+  const values = rows.map((day) => day.value);
+  const low = min(values) ?? 0;
+  const high = max(values) ?? 1;
+  const color = (value: number) => interpolateRdYlBu(1 - (value - low) / (high - low));
+  const x = scaleLinear().domain([0, rows.length - 1]).range([0, 128]);
+  const y = scaleLinear().domain([low, high]).range([96, 18]);
+  const path = line<(typeof rows)[number]>().x((day) => x(day.index)).y((day) => y(day.value))(rows) ?? '';
+  const firstWeekday = (new Date(Date.UTC(2024, 0, 1)).getUTCDay() + 6) % 7;
+  const cells = rows.map((day) => {
+    const [year, month, date] = day.date.split('-').map(Number);
+    const currentDate = new Date(Date.UTC(year, month - 1, date));
+    const dayOfYear = Math.round((currentDate.valueOf() - Date.UTC(year, 0, 1)) / 86_400_000);
+    return {
+      x: Math.floor((dayOfYear + firstWeekday) / 7),
+      y: (currentDate.getUTCDay() + 6) % 7,
+      color: color(day.value),
+      index: day.index,
+    };
+  });
+  const spiral = rows.map((day) => {
+    const progress = day.index / (rows.length - 1);
+    const angle = progress * Math.PI * 24 - Math.PI / 2;
+    const radius = 5 + progress * 48;
+    return { ...day, x: 336 + Math.cos(angle) * radius, y: 70 + Math.sin(angle) * radius, color: color(day.value) };
+  });
+  return { path, cells, spiral };
+})();
+
+const hierarchyPreview = (() => {
+  if (type !== 'hierarchy') return undefined;
+  type HierarchyDatum = { name: string; count?: number; children?: HierarchyDatum[] };
+  const rows = csvParse(sourceFile('lesson-01/data/newstudent.csv'));
+  const groups = new Map<string, Map<string, Map<string, number>>>();
+  for (const row of rows) {
+    const className = row['班级']?.trim();
+    const gender = row['性别']?.trim();
+    if (!className || !gender) continue;
+    const major = className.replace(/\d+班$/, '');
+    if (!groups.has(major)) groups.set(major, new Map());
+    const classes = groups.get(major)!;
+    if (!classes.has(className)) classes.set(className, new Map());
+    const genders = classes.get(className)!;
+    genders.set(gender, (genders.get(gender) ?? 0) + 1);
+  }
+  const data: HierarchyDatum = {
+    name: '全部样本',
+    children: [...groups.entries()].map(([major, classes]) => ({
+      name: major,
+      children: [...classes.entries()].map(([className, genders]) => ({
+        name: className,
+        children: [...genders.entries()].map(([gender, count]) => ({ name: gender, count })),
+      })),
+    })),
+  };
+  const root = treemap<HierarchyDatum>().size([420, 140]).paddingInner(2)(hierarchy(data).sum((node) => node.count ?? 0));
+  const topColor = new Map<string, string>();
+  root.children?.forEach((child, index) => topColor.set(child.data.name, schemeTableau10[index % schemeTableau10.length]));
+  const tiles = root.leaves().map((leaf) => {
+    let category = leaf;
+    while (category.depth > 1 && category.parent) category = category.parent;
+    return { x: leaf.x0, y: leaf.y0, width: leaf.x1 - leaf.x0, height: leaf.y1 - leaf.y0, color: topColor.get(category.data.name) ?? '#777', count: leaf.value ?? 0 };
+  });
+  const blocks = root.children?.map((node) => ({ name: node.data.name, x: node.x0, y: node.y0, width: node.x1 - node.x0, height: node.y1 - node.y0, color: topColor.get(node.data.name) ?? '#777' })) ?? [];
+  return { tiles, blocks, total: rows.length };
+})();
+
+const streamPreview = (() => {
+  if (type !== 'streamgraph') return undefined;
+  type StreamPreviewYear = { year: number; date: Date; [name: string]: number | Date };
+  const payload = JSON.parse(sourceFile('lesson-05/data/french_names.json')) as {
+    names: Record<string, { year: number; count: number }[]>;
+  };
+  const keys = Object.keys(payload.names);
+  const years: StreamPreviewYear[] = payload.names[keys[0]].map((point) => ({ year: point.year, date: new Date(Date.UTC(point.year, 0, 1)), ...Object.fromEntries(keys.map((key) => [key, payload.names[key].find((record) => record.year === point.year)?.count ?? 0])) }));
+  const layers = stack<StreamPreviewYear, string>().keys(keys).order(stackOrderInsideOut).offset(stackOffsetWiggle)(years);
+  const yValues = layers.flatMap((series) => series.flatMap((pair) => [pair[0], pair[1]]));
+  const x = scaleLinear().domain([0, years.length - 1]).range([0, 420]);
+  const y = scaleLinear().domain([min(yValues) ?? 0, max(yValues) ?? 1]).range([145, 7]);
+  const shape = area<[number, number]>().x((_pair, index) => x(index)).y0((pair) => y(pair[0])).y1((pair) => y(pair[1]));
+  return layers.map((series, index) => {
+    const points: [number, number][] = series.map((point) => [point[0], point[1]]);
+    return { key: series.key, path: shape(points) ?? '', color: schemeTableau10[index % schemeTableau10.length] };
+  });
+})();
+---
+
+<div class={`lab-preview lab-preview--${type}`} aria-hidden="true">
+  {type === 'color' && (
+    <svg viewBox="0 0 320 180">
+      <defs><pattern id="preview-outside-gamut" width="5" height="5" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="5" height="5" fill="#24222c"></rect><line x1="0" y1="0" x2="0" y2="5" stroke="#6c6875" stroke-width="1"></line></pattern></defs>
+      {colorSamples.map((cell) => <rect x={68 + cell.column * 7} y={21 + cell.row * 7} width="7.2" height="7.2" fill={cell.color} />)}
+      <path d="M50 22V150H258" fill="none" stroke="rgba(255,255,255,.55)" stroke-width="1" />
+      <text x="162" y="169" text-anchor="middle">a* · Lab(62)</text>
+    </svg>
+  )}
+
+  {type === 'marching' && marching && (
+    <svg viewBox="0 0 320 180">
+      {marching.tiles.map((tile) => <rect x={tile.x} y={tile.y} width={marching.step} height={marching.step} fill={tile.fill} />)}
+      {marching.gridX.map((x) => <line x1={x} y1={marching.gridY[0]} x2={x} y2={marching.gridY.at(-1)} stroke="rgba(255,255,255,.42)" stroke-width=".6" />)}
+      {marching.gridY.map((y) => <line x1={marching.gridX[0]} y1={y} x2={marching.gridX.at(-1)} y2={y} stroke="rgba(255,255,255,.42)" stroke-width=".6" />)}
+      <path d={marching.segments} fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" />
+    </svg>
+  )}
+
+  {type === 'time' && weatherPreview && (
+    <svg viewBox="0 0 420 140">
+      <path d={weatherPreview.path} transform="translate(8,0)" fill="none" stroke="#ed6874" stroke-width="2.1" />
+      {weatherPreview.cells.map((cell) => <rect x={148 + cell.x * 2.1} y={18 + cell.y * 2.1} width="1.8" height="1.8" rx=".3" fill={cell.color} />)}
+      {weatherPreview.spiral.map((point) => <circle cx={point.x} cy={point.y} r="1.2" fill={point.color} />)}
+      <text x="72" y="125" text-anchor="middle">折线</text><text x="200" y="125" text-anchor="middle">日历</text><text x="336" y="125" text-anchor="middle">螺旋</text>
+    </svg>
+  )}
+
+  {type === 'hierarchy' && hierarchyPreview && (
+    <svg viewBox="0 0 420 160">
+      {hierarchyPreview.blocks.map((block) => <rect x={block.x} y={block.y} width={block.width} height={block.height} rx="5" fill={block.color} fill-opacity=".8" stroke="#191925" stroke-width="2" />)}
+      {hierarchyPreview.tiles.map((tile) => <rect x={tile.x} y={tile.y} width={tile.width} height={tile.height} rx="2" fill={tile.color} fill-opacity=".56" stroke="#191925" stroke-width="1" />)}
+      <text x="210" y="157" text-anchor="middle">{hierarchyPreview.total} 条课程样本 · 专业 / 班级 / 性别</text>
+    </svg>
+  )}
+
+  {type === 'streamgraph' && streamPreview && (
+    <svg viewBox="0 0 440 168">
+      <g transform="translate(10,5)">
+        {streamPreview.map((series) => <path d={series.path} fill={series.color} fill-opacity=".88" stroke="#1a1720" stroke-width=".8" />)}
+      </g>
+      <text x="220" y="164" text-anchor="middle">Marie · Jean · Camille / 1900—2020</text>
+    </svg>
+  )}
+</div>
+
+<style>
+  .lab-preview {
+    overflow: hidden;
+    min-height: 10rem;
+    border-radius: var(--radius-lg);
+    background: #17161f;
+  }
+
+  .lab-preview svg {
+    display: block;
+    width: 100%;
+    height: auto;
+  }
+
+  .lab-preview text {
+    fill: rgba(248, 246, 252, 0.8);
+    font-family: var(--font-sans);
+    font-size: 9px;
+  }
+</style>

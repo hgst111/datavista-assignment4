@@ -1,0 +1,531 @@
+---
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import Header from '@/components/common/Header.astro';
+import Footer from '@/components/common/Footer.astro';
+import GlassPanel from '@/components/common/GlassPanel.astro';
+import Button from '@/components/ui/Button.astro';
+import Container from '@/components/ui/Container.astro';
+import GlassCard from '@/components/ui/GlassCard.astro';
+import Section from '@/components/ui/Section.astro';
+import siteConfig from '@/site.config';
+import { withBase } from '@/lib/url';
+
+const formats = [
+  {
+    number: '01',
+    label: '阅读',
+    title: '五章、27 节课程。',
+    description:
+      '从数据生成与 D3 操作出发，逐步学习色彩、低维数据和时间序列可视化。',
+    href: '/course/',
+  },
+  {
+    number: '02',
+    label: '实验',
+    title: '五个交互式可视化实验。',
+    description:
+      '使用课程中的真实数据和算法，探索色域、等值线、层级、时间形态与流图。',
+    href: '/labs/',
+  },
+  {
+    number: '03',
+    label: '资料',
+    title: '讲义、数据与原始源码。',
+    description:
+      '查阅原始中英文讲义、数据集、补充示例和完整课程快照。',
+    href: '/resources/',
+  },
+];
+
+const stack = [
+  {
+    name: 'Astro',
+    category: '框架',
+    detail: '以静态渲染为主，课程和图表无需服务器端运行时。',
+  },
+  {
+    name: 'MDX 与内容集合',
+    category: '课程内容',
+    detail: '使用有类型的课程集合呈现五章阅读内容和连续导航。',
+  },
+  {
+    name: 'D3.js',
+    category: '图表',
+    detail: '构建可交互实验，并保留原课程 D3 演示及其静态数据。',
+  },
+  {
+    name: 'Astro Haze',
+    category: '界面',
+    detail: '沿用 Aurora 背景、玻璃卡片、主题切换和响应式排版。',
+  },
+  {
+    name: 'GitHub Pages',
+    category: '部署',
+    detail: '课程页面、搜索索引和图表数据可随站点一起静态发布。',
+  },
+];
+---
+
+<BaseLayout
+  title="关于课程"
+  description="关于《可视化导论》课程、五章教学内容与原始演示资料。"
+>
+  <Header />
+
+  <main id="main" tabindex="-1">
+    <section class="about-hero">
+      <Container size="xl">
+        <GlassPanel
+          variant="solid"
+          padding="xl"
+          radius="xl"
+          className="about-hero__panel"
+        >
+          <div class="about-hero__meta">
+            <span>课程说明</span>
+            <span>5 章 · 27 节</span>
+          </div>
+
+          <div class="about-hero__body">
+            <div class="about-hero__title">
+              <p>课程平台 · {siteConfig.author}</p>
+              <h1>从数据到视觉表达的学习路径。</h1>
+            </div>
+            <div class="about-hero__statement">
+              <p>
+                《可视化导论》通过五章课程梳理数据、视觉编码、色彩、低维表达与时间序列。
+              </p>
+              <p>
+                课程阅读页沿用 Astro Haze 的玻璃界面和主题交互，原讲义、D3 代码及演示保留为静态资源。
+              </p>
+            </div>
+          </div>
+
+          <div class="about-hero__footer">
+          <span aria-hidden="true">VIS / 04</span>
+            <div class="about-hero__actions">
+              {
+                siteConfig.social.github && (
+                  <Button
+                    href={siteConfig.social.github}
+                    external
+                    variant="solid"
+                    size="lg"
+                  >
+                    查看原课程源码 <span aria-hidden="true">↗</span>
+                  </Button>
+                )
+              }
+              <Button href={withBase('/course/')} variant="outline" size="lg"
+                >浏览课程目录</Button
+              >
+            </div>
+          </div>
+        </GlassPanel>
+      </Container>
+    </section>
+
+    <Section
+      eyebrow="五章课程 · 一个学习路径"
+      title="从原始数据走向时间叙事。"
+      subtitle="每一节都能从课程目录进入，并连接原讲义、代码和可运行演示。"
+      align="left"
+      container="xl"
+    >
+      <div class="format-list">
+        {
+          formats.map((format) => (
+            <GlassCard
+              href={withBase(format.href)}
+              padding="lg"
+              radius="xl"
+              class="format-card"
+            >
+              <div class="format-card__meta">
+                <span>{format.number}</span>
+                <span>{format.label}</span>
+              </div>
+              <h2>{format.title}</h2>
+              <p>{format.description}</p>
+              <span class="format-card__link">
+                查看内容 <i aria-hidden="true">↗</i>
+              </span>
+            </GlassCard>
+          ))
+        }
+      </div>
+    </Section>
+
+    <section class="principle">
+      <Container size="xl">
+        <p class="principle__index">学习路径 / 04</p>
+        <blockquote>
+          先理解数据，
+          <span>再选择视觉表达。</span>
+        </blockquote>
+        <div class="principle__note">
+          <span class="principle__mark" aria-hidden="true">✦</span>
+          <p>
+            学习页面保留 Astro Haze 的玻璃界面，同时把讲解、数据来源和图表交互放在阅读中心。
+          </p>
+        </div>
+      </Container>
+    </section>
+
+    <Section
+      id="stack"
+      eyebrow="技术与内容"
+      title="静态优先，交互随内容展开。"
+      subtitle="课程内容、实验数据和搜索索引均随站点静态生成；图表交互在浏览器中运行。"
+      align="left"
+      container="xl"
+    >
+      <ol class="stack-list">
+        {
+          stack.map((item, index) => (
+            <li>
+              <span class="stack-list__number">
+                {String(index + 1).padStart(2, '0')}
+              </span>
+              <span class="stack-list__category">{item.category}</span>
+              <strong>{item.name}</strong>
+              <p>{item.detail}</p>
+            </li>
+          ))
+        }
+      </ol>
+    </Section>
+
+    <section class="about-cta">
+      <Container size="xl">
+        <div class="about-cta__copy">
+          <p>继续学习</p>
+          <h2>从一节课程开始。</h2>
+        </div>
+        <div class="about-cta__aside">
+          <p>
+            进入课程目录，沿着原始讲解、关键代码和演示逐节阅读；也可以直接打开可视化实验，比较不同的数据表达方式。
+          </p>
+          <div>
+            <Button href={withBase('/course/')} variant="solid" size="lg">
+              浏览课程目录 <span aria-hidden="true">→</span>
+            </Button>
+            <Button href={withBase('/labs/')} variant="outline" size="lg">
+              打开可视化实验室
+            </Button>
+          </div>
+        </div>
+      </Container>
+    </section>
+  </main>
+
+  <Footer />
+</BaseLayout>
+
+<style>
+  main {
+    overflow: clip;
+  }
+
+  .about-hero {
+    padding-block: clamp(3rem, 8vw, 7rem);
+  }
+
+  .about-hero__panel {
+    min-height: min(47rem, calc(100vh - 8rem)); /* fallback */
+    min-height: min(47rem, calc(100dvh - 8rem));
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+  }
+
+  .about-hero__meta,
+  .about-hero__footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-lg);
+    color: var(--color-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.13em;
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+  }
+
+  .about-hero__meta {
+    padding-bottom: var(--space-lg);
+    border-bottom: 1px solid var(--glass-border);
+  }
+
+  .about-hero__body {
+    display: grid;
+    grid-template-columns: minmax(20rem, 1.4fr) minmax(17rem, 0.6fr);
+    align-items: end;
+    gap: clamp(3rem, 8vw, 8rem);
+    padding-block: clamp(4rem, 10vw, 8rem);
+  }
+
+  .about-hero__title > p,
+  .about-cta__copy > p {
+    color: var(--color-accent);
+    text-transform: uppercase;
+    letter-spacing: 0.13em;
+    font-size: var(--text-xs);
+    font-weight: 700;
+  }
+
+  h1 {
+    max-width: 11ch;
+    margin: var(--space-lg) 0 0;
+    font-size: clamp(3.5rem, 8.5vw, 8rem);
+    line-height: 0.88;
+    letter-spacing: -0.07em;
+  }
+
+  .about-hero__statement {
+    padding-left: var(--space-xl);
+    border-left: 1px solid var(--glass-border);
+    color: var(--color-text-muted);
+    font-size: var(--text-lg);
+  }
+
+  .about-hero__statement p:last-child {
+    margin-bottom: 0;
+  }
+
+  .about-hero__footer {
+    align-items: flex-end;
+    padding-top: var(--space-lg);
+    border-top: 1px solid var(--glass-border);
+  }
+
+  .about-hero__actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: var(--space-sm);
+  }
+
+  .format-list {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--space-lg);
+  }
+
+  .format-card {
+    min-height: 28rem;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .format-card:nth-child(2) {
+    transform: translateY(2.5rem);
+  }
+
+  .format-card__meta {
+    display: flex;
+    justify-content: space-between;
+    color: var(--color-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+  }
+
+  .format-card h2 {
+    max-width: 12ch;
+    margin: auto 0 var(--space-lg);
+    font-size: var(--text-3xl);
+    line-height: 1.02;
+    letter-spacing: -0.045em;
+  }
+
+  .format-card p {
+    color: var(--color-text-muted);
+  }
+
+  .format-card__link {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: var(--space-lg);
+    padding-top: var(--space-lg);
+    border-top: 1px solid var(--glass-border);
+    color: var(--color-text);
+    font-weight: 700;
+  }
+
+  .format-card__link i {
+    color: var(--color-accent);
+    font-style: normal;
+  }
+
+  .principle {
+    padding-block: clamp(7rem, 16vw, 14rem);
+  }
+
+  .principle__index {
+    color: var(--color-accent);
+    text-transform: uppercase;
+    letter-spacing: 0.13em;
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+  }
+
+  blockquote {
+    max-width: 15ch;
+    margin: clamp(3rem, 7vw, 6rem) 0;
+    font-size: clamp(3.2rem, 8vw, 7.5rem);
+    font-weight: 750;
+    line-height: 0.88;
+    letter-spacing: -0.07em;
+  }
+
+  blockquote span {
+    display: block;
+    color: var(--color-text-muted);
+    font-weight: 500;
+  }
+
+  .principle__note {
+    display: grid;
+    grid-template-columns: auto minmax(15rem, 31rem);
+    justify-content: end;
+    align-items: start;
+    gap: var(--space-lg);
+  }
+
+  .principle__note p {
+    margin: 0;
+    color: var(--color-text-muted);
+    font-size: var(--text-lg);
+  }
+
+  .principle__mark {
+    color: var(--color-accent);
+    font-size: var(--text-2xl);
+  }
+
+  .stack-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    border-top: 1px solid var(--glass-border);
+  }
+
+  .stack-list li {
+    display: grid;
+    grid-template-columns: 3rem 8rem minmax(12rem, 0.65fr) minmax(18rem, 1fr);
+    align-items: baseline;
+    gap: var(--space-lg);
+    margin: 0;
+    padding-block: var(--space-xl);
+    border-bottom: 1px solid var(--glass-border);
+  }
+
+  .stack-list__number,
+  .stack-list__category {
+    color: var(--color-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+  }
+
+  .stack-list strong {
+    font-size: var(--text-xl);
+  }
+
+  .stack-list p {
+    margin: 0;
+    color: var(--color-text-muted);
+  }
+
+  .about-cta {
+    padding-block: clamp(6rem, 14vw, 12rem);
+  }
+
+  .about-cta :global(.container) {
+    display: grid;
+    grid-template-columns: minmax(20rem, 1.2fr) minmax(18rem, 0.8fr);
+    align-items: end;
+    gap: clamp(3rem, 10vw, 10rem);
+    padding-top: clamp(3rem, 7vw, 6rem);
+    border-top: 1px solid var(--glass-border);
+  }
+
+  .about-cta h2 {
+    max-width: 10ch;
+    margin: var(--space-lg) 0 0;
+    font-size: clamp(3.5rem, 8vw, 7rem);
+    line-height: 0.88;
+    letter-spacing: -0.07em;
+  }
+
+  .about-cta__aside > p {
+    color: var(--color-text-muted);
+    font-size: var(--text-lg);
+  }
+
+  .about-cta__aside > div {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-sm);
+    margin-top: var(--space-xl);
+  }
+
+  @media (max-width: 900px) {
+    .about-hero__body,
+    .format-list,
+    .about-cta :global(.container) {
+      grid-template-columns: 1fr;
+    }
+
+    .format-card,
+    .format-card:nth-child(2) {
+      min-height: 22rem;
+      transform: none;
+    }
+
+    .stack-list li {
+      grid-template-columns: 2.5rem 1fr;
+    }
+
+    .stack-list strong,
+    .stack-list p {
+      grid-column: 2;
+    }
+  }
+
+  @media (max-width: 640px) {
+    .about-hero__meta,
+    .about-hero__footer {
+      align-items: flex-start;
+      flex-direction: column;
+    }
+
+    .about-hero__body {
+      gap: var(--space-2xl);
+    }
+
+    .about-hero__statement {
+      padding: var(--space-xl) 0 0;
+      border-top: 1px solid var(--glass-border);
+      border-left: 0;
+    }
+
+    .about-hero__actions {
+      justify-content: flex-start;
+    }
+
+    .principle__note {
+      grid-template-columns: auto 1fr;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .format-card:nth-child(2) {
+      transform: none;
+    }
+  }
+</style>

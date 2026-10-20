@@ -1,0 +1,30 @@
+---
+import LabPage from '@/components/labs/LabPage.astro';
+import MarchingSquaresLab from '@/components/labs/MarchingSquaresLab.astro';
+---
+
+<LabPage
+  title="Marching Squares 等值线实验室"
+  description="调节标量场阈值，逐格检查原课程 16-case Marching Squares 算法。"
+  eyebrow="04.5 / CONTOUR LAB"
+  takeaway="每个网格单元只需判断四角在阈值两侧的位置，就能将标量场边界拼成连续等值线。"
+  courses={[{ slug: 'ch-4-5', label: '4.5 等值线' }]}
+>
+  <MarchingSquaresLab slot="visual" />
+
+  <div class="lab-note-grid">
+    <section class="lab-note-card">
+      <p class="lab-section-eyebrow">算法拆解</p>
+      <h2>从四个角得到 16 种状态</h2>
+      <p>对每个单元读取 TL、TR、BR、BL 四个采样值，并按原课程位序把超过阈值的角编码为 4 位 mask。0 与 15 没有交点，其余状态查原版 16-case 边表，在相邻角之间线性插值定位交点。</p>
+      <p>选择或点击一个网格单元，可以查看它的 case 编号、四角数值和对应的边连接；阈值变化后，局部状态和整张等值线同步更新。</p>
+    </section>
+    <section class="lab-note-card">
+      <p class="lab-section-eyebrow">比较视图</p>
+      <h2>连续场、采样网格与等值带</h2>
+      <p>底层颜色由相邻网格采样双线性插值得到。网格开关显示原始离散采样位置；“等值带”调用 D3 contour 几何生成同一标量场的嵌套填充区域，精确阈值线仍由原课程的 16-case 边表计算。</p>
+      <p>场函数由两个高斯峰叠加而成，适合作为算法演示，不应解读为真实地理或医学测量结果。</p>
+    </section>
+  </div>
+  <p class="lab-source-note">Marching Squares 的 case 编码和边连接表直接依据课程原始 `lesson-04/lesson.js` 中 `d-4-5` 实现；该源码快照仍保留原样。D3 contour 仅用于补充等值带几何。</p>
+</LabPage>

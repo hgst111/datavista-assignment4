@@ -1,0 +1,124 @@
+---
+import { withBase } from '@/lib/url';
+
+export interface Props {
+  src: string;
+  title: string;
+  height?: number;
+  loading?: 'eager' | 'lazy';
+  focusAnchor?: string;
+}
+
+const { src, title, height = 880, loading = 'lazy', focusAnchor } = Astro.props;
+---
+
+<iframe
+  class="legacy-lesson-frame"
+  src={withBase(src)}
+  title={title}
+  loading={loading}
+  data-focus-anchor={focusAnchor}
+  sandbox="allow-scripts allow-same-origin"
+  referrerpolicy="no-referrer"
+  style={'--legacy-frame-height: ' + height + 'px;'}
+></iframe>
+
+<script>
+  import { onLeave, onPage } from '@/lib/lifecycle';
+
+  const cleanups = new Map<HTMLIFrameElement, () => void>();
+
+  function restoreFrames() {
+    for (const cleanup of cleanups.values()) cleanup();
+    cleanups.clear();
+  }
+
+  onPage(() => {
+    restoreFrames();
+
+    document
+      .querySelectorAll<HTMLIFrameElement>('.legacy-lesson-frame[data-focus-anchor]')
+      .forEach((frame) => {
+        const anchor = frame.dataset.focusAnchor;
+        if (!anchor) return;
+
+        let configured = false;
+        let resizeObserver: ResizeObserver | undefined;
+        let resizeHandler: (() => void) | undefined;
+
+        const configure = () => {
+          if (configured) return;
+          try {
+            const doc = frame.contentDocument;
+            const target = doc?.getElementById(anchor);
+            if (!doc?.head || !doc.body || !target) return;
+
+            configured = true;
+            const demoPanel = target.querySelector<HTMLElement>('.tab-panel[data-panel="demo"]');
+            const style = doc.createElement('style');
+            style.dataset.courseEmbedFocus = 'true';
+            style.textContent = `
+              html, body { width: 100% !important; min-width: 0 !important; min-height: 0 !important; height: auto !important; margin: 0 !important; padding: 0 !important; overflow-x: hidden !important; }
+              body { box-sizing: border-box !important; }
+              .course-topbar, .lesson-header, .chapter-nav, .lesson-footer, .chapter-pager { display: none !important; }
+              .lesson-main, .chapter-content { display: block !important; width: 100% !important; max-width: none !important; min-width: 0 !important; margin: 0 !important; padding: 0 !important; }
+              .chapter:not(#${anchor}) { display: none !important; }
+              #${anchor} { display: block !important; width: 100% !important; max-width: none !important; min-width: 0 !important; margin: 0 !important; padding: 0 !important; }
+              #${anchor} > h2, #${anchor} > .chapter-subtitle, #${anchor} > .tabs { display: none !important; }
+              #${anchor} .tab-panel:not([data-panel="demo"]) { display: none !important; }
+              #${anchor} .tab-panel[data-panel="demo"] { display: block !important; width: 100% !important; min-height: 0 !important; margin: 0 !important; padding: 1rem !important; box-sizing: border-box !important; }
+              #${anchor} .demo-mount { width: 100% !important; min-width: 0 !important; max-width: 100% !important; overflow-x: auto !important; }
+              #${anchor} .demo-mount > svg, #${anchor} .demo-mount svg { max-width: 100% !important; }
+            `;
+            doc.head.append(style);
+
+            const fit = () => {
+              const height = Math.max(320, demoPanel?.scrollHeight ?? target.scrollHeight);
+              frame.style.height = `${height + 12}px`;
+            };
+
+            resizeHandler = fit;
+            frame.contentWindow?.addEventListener('resize', fit);
+            resizeObserver = new ResizeObserver(fit);
+            resizeObserver.observe(doc.body);
+            resizeObserver.observe(target);
+            if (demoPanel) resizeObserver.observe(demoPanel);
+            fit();
+          } catch {
+            // Keep the legacy frame usable if the browser blocks same-origin access.
+          }
+        };
+
+        frame.addEventListener('load', configure);
+        cleanups.set(frame, () => {
+          frame.removeEventListener('load', configure);
+          if (resizeHandler) frame.contentWindow?.removeEventListener('resize', resizeHandler);
+          resizeObserver?.disconnect();
+        });
+
+        if (frame.contentDocument?.readyState === 'complete') configure();
+      });
+  });
+
+  onLeave(restoreFrames);
+</script>
+
+<style>
+  .legacy-lesson-frame {
+    display: block;
+    width: 100%;
+    height: var(--legacy-frame-height);
+    min-width: 0;
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-lg);
+    background: #fff;
+    box-shadow: var(--glass-shadow);
+  }
+
+  @media (max-width: 640px) {
+    .legacy-lesson-frame {
+      height: max(680px, var(--legacy-frame-height));
+      border-radius: var(--radius-md);
+    }
+  }
+</style>

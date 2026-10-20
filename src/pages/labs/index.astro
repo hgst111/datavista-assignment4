@@ -1,0 +1,196 @@
+---
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import Header from '@/components/common/Header.astro';
+import Footer from '@/components/common/Footer.astro';
+import Container from '@/components/ui/Container.astro';
+import GlassCard from '@/components/ui/GlassCard.astro';
+import LegacyLessonFrame from '@/components/course/LegacyLessonFrame.astro';
+import LabPreview from '@/components/labs/LabPreview.astro';
+import { labDirectory } from '@/lib/course-lab-links';
+import { withBase } from '@/lib/url';
+
+const tagByPreview = {
+  color: 'COLOR SPACE',
+  marching: 'CONTOUR ALGORITHM',
+  time: 'THREE TIME LAYOUTS',
+  hierarchy: 'HIERARCHY',
+  streamgraph: 'WIGGLE OFFSET',
+} as const;
+const labs = labDirectory.map((lab) => ({ ...lab, tag: tagByPreview[lab.preview] }));
+const flagshipLabs = labs.slice(0, 3);
+const additionalLabs = labs.slice(3);
+const courseHref = (section: string) =>
+  withBase(`/course/ch-${section.replace('.', '-')}/`);
+---
+
+<BaseLayout
+  title="可视化实验室"
+  description="使用原课程数据探索色域、等值线、时间形态、层级结构和 Streamgraph。"
+>
+  <Header />
+  <main id="main" tabindex="-1" class="labs-page">
+    <Container size="xl">
+      <header class="labs-heading">
+        <p class="eyebrow">VISUALIZATION LAB · ASSIGNMENT 04</p>
+        <h1>同一份数据，<br class="desktop-break" />看见更多结构。</h1>
+        <p>
+          从课程中的颜色、层级、标量场和时间数据出发。切换视觉编码、调整参数、追踪单个观测，理解图表形式如何改变你看到的关系。
+        </p>
+      </header>
+
+      <section class="lab-group" aria-labelledby="flagship-title">
+        <div class="lab-group__heading">
+          <div>
+            <p class="eyebrow">FIELD NOTES · 01—03</p>
+            <h2 id="flagship-title">特色实验</h2>
+          </div>
+          <span>三个主实验 · 可操作的完整视图</span>
+        </div>
+        <div class="lab-card-grid lab-card-grid--featured">
+          {flagshipLabs.map((lab) => (
+            <article class="lab-card glass-card">
+              <a class="lab-card__visual" href={withBase(lab.href)} aria-label={`打开 ${lab.title}`}>
+                <LabPreview type={lab.preview} />
+                <span class="lab-card__tag">{lab.tag}</span>
+              </a>
+              <div class="lab-card__body">
+                <p class="lab-card__code">{lab.courseSections.join(' · ')}</p>
+                <h3><a href={withBase(lab.href)}>{lab.title}</a></h3>
+                <p>{lab.description}</p>
+                <div class="lab-card__courses" aria-label="关联课程小节">
+                  <span>课程入口</span>
+                  {lab.courseSections.map((section) => (
+                    <a href={courseHref(section)}>{section}</a>
+                  ))}
+                </div>
+                <a class="lab-card__open" href={withBase(lab.href)}>进入实验 <span aria-hidden="true">↗</span></a>
+              </div>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <section class="lab-group lab-group--secondary" aria-labelledby="more-labs-title">
+        <div class="lab-group__heading">
+          <div>
+            <p class="eyebrow">STRUCTURE · COMPOSITION</p>
+            <h2 id="more-labs-title">更多表达方式</h2>
+          </div>
+          <span>两个拓展视图 · 共用原课程数据</span>
+        </div>
+        <div class="lab-card-grid lab-card-grid--secondary">
+          {additionalLabs.map((lab) => (
+            <article class="lab-card glass-card">
+              <a class="lab-card__visual" href={withBase(lab.href)} aria-label={`打开 ${lab.title}`}>
+                <LabPreview type={lab.preview} />
+                <span class="lab-card__tag">{lab.tag}</span>
+              </a>
+              <div class="lab-card__body">
+                <p class="lab-card__code">{lab.courseSections.join(' · ')}</p>
+                <h3><a href={withBase(lab.href)}>{lab.title}</a></h3>
+                <p>{lab.description}</p>
+                <div class="lab-card__courses" aria-label="关联课程小节">
+                  <span>课程入口</span>
+                  {lab.courseSections.map((section) => (
+                    <a href={courseHref(section)}>{section}</a>
+                  ))}
+                </div>
+                <a class="lab-card__open" href={withBase(lab.href)}>进入实验 <span aria-hidden="true">↗</span></a>
+              </div>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <details class="legacy-labs glass-card">
+        <summary>
+          <span><strong>原课程演示</strong><small>保留原版 1.1 数据加载器与 4.5 Marching Squares 页面</small></span>
+          <span class="legacy-labs__toggle" aria-hidden="true">展开原版 iframe</span>
+        </summary>
+        <div class="legacy-labs__body">
+          <section class="legacy-entry" aria-labelledby="legacy-data-title">
+            <div class="legacy-entry__header">
+              <div><p class="eyebrow">01.1 · SOURCE DEMO</p><h3 id="legacy-data-title">数据生成与类型转换</h3><p>课程原始 80 行 CSV、字段映射、类型转换与表格预览。</p></div>
+              <a href={courseHref('ch-1-1')}>阅读本节 →</a>
+            </div>
+            <LegacyLessonFrame src="/course-source/lesson-01/demo/01-data-loader/index.html" title="原版 1.1 数据加载器演示" height={660} loading="lazy" />
+          </section>
+          <section class="legacy-entry" aria-labelledby="legacy-contour-title">
+            <div class="legacy-entry__header">
+              <div><p class="eyebrow">04.5 · SOURCE DEMO</p><h3 id="legacy-contour-title">原版 Marching Squares 交互</h3><p>课程集成页的初始演示状态，保留作为算法对照。</p></div>
+              <a href={courseHref('ch-4-5')}>阅读本节 →</a>
+            </div>
+            <LegacyLessonFrame src="/course-source/lesson-04/index.html#ch-4-5" title="原版 4.5 Marching Squares 演示" height={930} loading="lazy" />
+          </section>
+        </div>
+      </details>
+
+      <GlassCard href={withBase('/course/')} padding="lg" class="labs-footer-card">
+        <span class="eyebrow">COURSE MAP</span>
+        <h2>沿着课程章节继续探索</h2>
+        <p>回到五章、27 节课程目录，进入原讲解、关键代码与逐节演示。</p>
+      </GlassCard>
+    </Container>
+  </main>
+  <Footer />
+</BaseLayout>
+
+<style>
+  .labs-page { padding: var(--space-xl) 0 var(--space-3xl); }
+  .eyebrow { margin: 0; color: var(--color-accent-text); font-size: var(--text-xs); font-weight: 750; letter-spacing: .13em; text-transform: uppercase; }
+  .labs-heading { max-width: 58rem; margin: 0 0 var(--space-3xl); }
+  .labs-heading h1 { margin: .55rem 0 .85rem; font-size: clamp(3.1rem, 7vw, 6rem); letter-spacing: -.065em; line-height: .98; }
+  .labs-heading > p:last-child { max-width: 52rem; margin: 0; color: var(--color-text-muted); font-size: var(--text-xl); line-height: 1.65; }
+  .desktop-break { display: none; }
+  .lab-group { margin-bottom: var(--space-3xl); }
+  .lab-group__heading { display: flex; justify-content: space-between; align-items: end; gap: 1rem; margin-bottom: var(--space-lg); }
+  .lab-group__heading h2 { margin: .3rem 0 0; font-size: var(--text-3xl); letter-spacing: -.035em; }
+  .lab-group__heading > span { color: var(--color-text-muted); font-size: var(--text-sm); }
+  .lab-card-grid { display: grid; gap: var(--space-md); }
+  .lab-card-grid--featured { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .lab-card-grid--secondary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .lab-card { overflow: hidden; border: 1px solid var(--glass-border); border-radius: var(--radius-xl); background: var(--glass-bg); box-shadow: var(--glass-shadow); backdrop-filter: blur(var(--glass-blur)); -webkit-backdrop-filter: blur(var(--glass-blur)); transition: transform var(--transition-base), border-color var(--transition-base); }
+  :global(html[data-theme='light']) .lab-card,
+  :global(html[data-theme='light']) .legacy-labs {
+    --glass-sat: 120%;
+    background-color: color-mix(in srgb, var(--color-surface) 50%, var(--glass-bg-solid) 50%);
+  }
+  @media (prefers-reduced-transparency: reduce) {
+    :global(html[data-theme='light']) .lab-card,
+    :global(html[data-theme='light']) .legacy-labs { background-color: var(--glass-bg); }
+  }
+  .lab-card:hover { transform: translateY(-4px); border-color: color-mix(in srgb, var(--color-accent), transparent 35%); }
+  .lab-card__visual { position: relative; display: block; padding: .8rem .8rem 0; text-decoration: none; }
+  .lab-card__tag { position: absolute; top: 1.2rem; left: 1.2rem; padding: .32rem .58rem; border: 1px solid rgba(255,255,255,.18); border-radius: var(--radius-full); background: rgba(18,17,27,.72); color: #fff; font-size: .62rem; font-weight: 750; letter-spacing: .1em; }
+  .lab-card__body { display: flex; flex-direction: column; align-items: flex-start; min-height: 15rem; padding: 1rem 1.15rem 1.15rem; }
+  .lab-card__code { margin: 0 0 .3rem; color: var(--color-accent-text); font-size: var(--text-xs); font-weight: 750; letter-spacing: .08em; }
+  .lab-card h3 { margin: 0; font-size: var(--text-xl); line-height: 1.25; }
+  .lab-card h3 a { color: var(--color-text); text-decoration: none; }
+  .lab-card__body > p:not(.lab-card__code) { margin: .55rem 0 1rem; color: var(--color-text-muted); font-size: var(--text-sm); line-height: 1.6; }
+  .lab-card__courses { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem; margin: 0 0 1rem; }
+  .lab-card__courses > span { margin-right: .2rem; color: var(--color-text-muted); font-size: var(--text-xs); }
+  .lab-card__courses > a { min-width: 2.8rem; padding: .28rem .5rem; border: 1px solid var(--glass-border); border-radius: var(--radius-full); color: var(--color-accent-text); font-size: var(--text-xs); font-weight: 700; text-align: center; text-decoration: none; }
+  .lab-card__courses > a:hover { background: var(--color-accent-glass); }
+  .lab-card__open { display: inline-flex; align-items: center; gap: .45rem; margin-top: auto; color: var(--color-accent-text); font-size: var(--text-sm); font-weight: 700; text-decoration: none; }
+  .lab-card__open span { transition: transform var(--transition-fast); }
+  .lab-card:hover .lab-card__open span { transform: translate(2px, -2px); }
+  .legacy-labs { margin: 0 0 var(--space-xl); padding: 0 clamp(1rem, 2vw, 1.4rem); border: 1px solid var(--glass-border); border-radius: var(--radius-xl); background: var(--glass-bg); box-shadow: var(--glass-shadow); backdrop-filter: blur(var(--glass-blur)); }
+  .legacy-labs summary { display: flex; justify-content: space-between; align-items: center; gap: 1rem; min-height: 5rem; cursor: pointer; list-style: none; }
+  .legacy-labs summary::-webkit-details-marker { display: none; }
+  .legacy-labs summary > span:first-child { display: grid; gap: .18rem; }
+  .legacy-labs summary strong { font-size: var(--text-lg); }
+  .legacy-labs summary small,.legacy-labs__toggle { color: var(--color-text-muted); font-size: var(--text-sm); }
+  .legacy-labs__toggle { color: var(--color-accent-text); white-space: nowrap; }
+  .legacy-labs[open] .legacy-labs__toggle { font-size: 0; }
+  .legacy-labs[open] .legacy-labs__toggle::after { content: '收起原版 iframe'; font-size: var(--text-sm); }
+  .legacy-entry { padding: var(--space-lg) 0; border-top: 1px solid var(--glass-border); }
+  .legacy-entry__header { display: flex; justify-content: space-between; align-items: center; gap: 1rem; margin-bottom: var(--space-md); }
+  .legacy-entry__header h3 { margin: .25rem 0; font-size: var(--text-xl); }
+  .legacy-entry__header p:last-child { margin: 0; color: var(--color-text-muted); line-height: 1.5; }
+  .legacy-entry__header > a { color: var(--color-accent-text); font-weight: 700; white-space: nowrap; }
+  .labs-footer-card h2 { margin: .4rem 0; }
+  .labs-footer-card p { margin-bottom: 0; color: var(--color-text-muted); }
+  @media (min-width: 900px) { .desktop-break { display: initial; } }
+  @media (max-width: 900px) { .lab-card-grid--featured { grid-template-columns: repeat(2, minmax(0, 1fr)); } .lab-card-grid--featured .lab-card:first-child { grid-column: span 2; } }
+  @media (max-width: 640px) { .labs-heading h1 { font-size: clamp(2.4rem, 10vw, 3.5rem); } .lab-card-grid--featured,.lab-card-grid--secondary { grid-template-columns: 1fr; } .lab-card-grid--featured .lab-card:first-child { grid-column: auto; } .lab-group__heading { align-items: flex-start; flex-direction: column; gap: .2rem; } .legacy-labs summary { align-items: flex-start; flex-direction: column; justify-content: center; gap: .4rem; padding: .85rem 0; } .legacy-entry__header { align-items: flex-start; flex-direction: column; } }
+</style>

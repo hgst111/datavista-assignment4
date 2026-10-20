@@ -1,0 +1,591 @@
+---
+import { getCollection, render } from 'astro:content';
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import Header from '@/components/common/Header.astro';
+import Footer from '@/components/common/Footer.astro';
+import Container from '@/components/ui/Container.astro';
+import GlassCard from '@/components/ui/GlassCard.astro';
+import LegacyLessonFrame from '@/components/course/LegacyLessonFrame.astro';
+import { withBase } from '@/lib/url';
+import { labsForCourse } from '@/lib/course-lab-links';
+
+export async function getStaticPaths() {
+  const lessons = (await getCollection('courses')).sort(
+    (a, b) => a.data.order - b.data.order,
+  );
+  return lessons.map((lesson) => ({
+    params: { slug: lesson.id },
+    props: { lesson },
+  }));
+}
+
+const { lesson } = Astro.props;
+const lessons = (await getCollection('courses')).sort(
+  (a, b) => a.data.order - b.data.order,
+);
+const index = lessons.findIndex((item) => item.id === lesson.id);
+const previous = lessons[index - 1];
+const next = lessons[index + 1];
+const relatedLabs = labsForCourse(lesson.data.sectionNumber);
+const chapterTitles = [
+  '数据',
+  '数据可视化流程',
+  '色彩专题',
+  '低维数据可视化',
+  '时序数据可视化',
+];
+const chapterGroups = chapterTitles.map((title, chapterIndex) => ({
+  number: chapterIndex + 1,
+  title,
+  lessons: lessons.filter((item) => item.data.chapter === chapterIndex + 1),
+}));
+const runtimeAdapters: Record<string, string> = {
+  '4.3': '/course-adapters/lesson-04/index.html',
+  '5.4': '/course-adapters/lesson-05/index.html',
+};
+const sourceFrame = lesson.data.demoPath
+  ? lesson.data.demoPath
+  : (runtimeAdapters[lesson.data.sectionNumber] ?? lesson.data.integratedPage) +
+    (lesson.data.hasDemo ? '#' + lesson.data.anchor : '');
+const sourcePage = lesson.data.integratedPage + '#' + lesson.data.anchor;
+const { Content } = await render(lesson);
+---
+
+<BaseLayout
+  title={lesson.data.sectionNumber + ' ' + lesson.data.title}
+  description={lesson.data.summary}
+  article={{ type: 'CreativeWork', tags: [lesson.data.chapterTitle, lesson.data.sectionNumber] }}
+>
+  <Header />
+  <main id="main" tabindex="-1" class="lesson-page">
+    <Container size="xl">
+      <nav class="breadcrumbs" aria-label="面包屑导航">
+        <a href={withBase('/')}>课程首页</a>
+        <span aria-hidden="true">/</span>
+        <a href={withBase('/course/')}>课程目录</a>
+        <span aria-hidden="true">/</span>
+        <span aria-current="page">
+          第 {lesson.data.chapter} 章 · {lesson.data.chapterTitle}
+        </span>
+      </nav>
+
+      <header class="lesson-heading">
+        <p class="eyebrow">
+          CHAPTER {String(lesson.data.chapter).padStart(2, '0')} · SECTION {lesson.data.sectionNumber}
+        </p>
+        <h1>{lesson.data.title}</h1>
+        <p class="lesson-heading__summary">{lesson.data.summary}</p>
+        {
+          lesson.data.englishTitle && (
+            <p class="lesson-heading__english">{lesson.data.englishTitle}</p>
+          )
+        }
+      </header>
+
+      <div class="lesson-layout">
+        <aside class="course-toc glass-card" aria-label="课程目录" data-pagefind-ignore>
+          <p class="course-toc__title">课程目录</p>
+          {
+            chapterGroups.map((chapter) => (
+              <details open={chapter.number === lesson.data.chapter}>
+                <summary>
+                  第 {chapter.number} 章 · {chapter.title}
+                  <span>{chapter.lessons.length} 节</span>
+                </summary>
+                <ul>
+                  {chapter.lessons.map((item) => (
+                    <li>
+                      <a
+                        class:list={[
+                          'course-toc__link',
+                          { 'is-active': item.id === lesson.id },
+                        ]}
+                        href={withBase('/course/' + item.id + '/')}
+                        aria-current={item.id === lesson.id ? 'page' : undefined}
+                      >
+                        <span>{item.data.sectionNumber}</span>
+                        {item.data.title}
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              </details>
+            ))
+          }
+        </aside>
+
+        <div class="lesson-content">
+          <section class="lesson-lecture glass-card" aria-labelledby="lecture-title">
+            <div class="section-label">
+              <span class="section-label__index">01</span>
+              <h2 id="lecture-title">讲解与关键代码</h2>
+            </div>
+            <div class="lesson-prose">
+              <Content />
+            </div>
+            {
+              lesson.data.codeTopics.length > 0 && (
+                <div class="code-topics">
+                  <span>原版代码主题</span>
+                  <ul>
+                    {lesson.data.codeTopics.map((topic) => <li>{topic}</li>)}
+                  </ul>
+                </div>
+              )
+            }
+          </section>
+
+          {relatedLabs.length > 0 && (
+            <aside class="related-labs glass-card" aria-label="关联可视化实验" data-pagefind-ignore>
+              <div>
+                <p class="eyebrow">TRY IT WITH THE COURSE DATA</p>
+                <h2>把本节知识放进实验</h2>
+                <p>继续操作对应图表，在同一数据或算法上检验视觉编码。</p>
+              </div>
+              <div class="related-labs__links">
+                {relatedLabs.map((lab) => (
+                  <a href={withBase(lab.href)}>
+                    <span>{lab.kind}</span>
+                    <strong>{lab.title}</strong>
+                    <span aria-hidden="true">打开实验 ↗</span>
+                  </a>
+                ))}
+              </div>
+            </aside>
+          )}
+
+          <section class="lesson-demo" aria-labelledby="demo-title">
+            <div class="section-label">
+              <span class="section-label__index">02</span>
+              <div>
+                <p class="eyebrow">ORIGINAL INTERACTIVE</p>
+                <h2 id="demo-title">
+                  {lesson.data.hasDemo ? '原版交互演示' : '原版课程页面'}
+                </h2>
+              </div>
+            </div>
+            <p class="lesson-demo__note">
+              当前小节的原版 HTML、CSS、JavaScript 与数据在隔离框架中运行；章节讲解与关键代码已在上方直接阅读。
+            </p>
+            <LegacyLessonFrame
+              src={sourceFrame}
+              title={lesson.data.sectionNumber + ' ' + lesson.data.title + '：原版交互演示'}
+              height={lesson.data.sectionNumber === '1.1' ? 710 : 640}
+              focusAnchor={lesson.data.demoPath ? undefined : lesson.data.anchor}
+              loading="eager"
+            />
+            <p class="source-link">
+              <a href={withBase(sourcePage)} target="_blank" rel="noopener noreferrer">
+                打开本章原始集成教学页面 ↗
+              </a>
+              <a href={withBase(lesson.data.originalLecture)} target="_blank" rel="noopener noreferrer">
+                查看原始讲义 Markdown ↗
+              </a>
+            </p>
+          </section>
+
+          <nav class="lesson-pagination" aria-label="相邻课程">
+            {
+              previous ? (
+                <GlassCard href={withBase('/course/' + previous.id + '/')} padding="md">
+                  <span>← 上一节 · {previous.data.sectionNumber}</span>
+                  <strong>{previous.data.title}</strong>
+                </GlassCard>
+              ) : <span />
+            }
+            {
+              next ? (
+                <GlassCard href={withBase('/course/' + next.id + '/')} padding="md">
+                  <span>下一节 · {next.data.sectionNumber} →</span>
+                  <strong>{next.data.title}</strong>
+                </GlassCard>
+              ) : <span />
+            }
+          </nav>
+        </div>
+      </div>
+    </Container>
+  </main>
+  <Footer />
+</BaseLayout>
+
+<style>
+  .lesson-page {
+    padding: var(--space-xl) 0 var(--space-3xl);
+  }
+
+  .breadcrumbs {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-sm);
+    color: var(--color-text-muted);
+    font-size: var(--text-sm);
+  }
+
+  .breadcrumbs a,
+  .source-link a {
+    color: var(--color-accent-text);
+  }
+
+  .lesson-heading {
+    max-width: 58rem;
+    padding: var(--space-2xl) 0;
+  }
+
+  .eyebrow {
+    margin: 0;
+    color: var(--color-accent-text);
+    font-size: var(--text-xs);
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+
+  .lesson-heading h1 {
+    margin: var(--space-sm) 0;
+    font-size: var(--text-4xl);
+    line-height: 1.12;
+  }
+
+  .lesson-heading__summary {
+    margin: 0;
+    color: var(--color-text-muted);
+    font-size: var(--text-xl);
+    line-height: 1.65;
+  }
+
+  .lesson-heading__english {
+    color: var(--color-text-muted);
+    font-size: var(--text-sm);
+  }
+
+  .lesson-layout {
+    display: grid;
+    grid-template-columns: minmax(15rem, 19rem) minmax(0, 1fr);
+    align-items: start;
+    gap: var(--space-xl);
+  }
+
+  .course-toc {
+    position: sticky;
+    top: calc(var(--header-height) + var(--space-md));
+    max-height: calc(100vh - var(--header-height) - var(--space-2xl));
+    overflow: auto;
+    padding: var(--space-lg);
+  }
+
+  .course-toc__title {
+    margin: 0 0 var(--space-md);
+    font-weight: 700;
+  }
+
+  .course-toc details {
+    border-top: 1px solid var(--glass-border);
+    padding: var(--space-sm) 0;
+  }
+
+  .course-toc summary {
+    display: flex;
+    justify-content: space-between;
+    gap: var(--space-sm);
+    cursor: pointer;
+    font-size: var(--text-sm);
+    font-weight: 600;
+  }
+
+  .course-toc summary span {
+    color: var(--color-text-muted);
+    font-weight: 400;
+  }
+
+  .course-toc ul {
+    display: grid;
+    gap: 2px;
+    margin: var(--space-sm) 0 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .course-toc__link {
+    display: flex;
+    gap: var(--space-sm);
+    padding: 0.4rem;
+    border-radius: var(--radius-sm);
+    color: var(--color-text-muted);
+    font-size: var(--text-sm);
+    text-decoration: none;
+  }
+
+  .course-toc__link span {
+    flex: 0 0 2.3rem;
+    color: var(--color-text-muted);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .course-toc__link:hover,
+  .course-toc__link.is-active {
+    color: var(--color-accent-text);
+    background: var(--color-accent-glass);
+  }
+
+  .lesson-content {
+    min-width: 0;
+    display: grid;
+    gap: var(--space-xl);
+  }
+
+  .lesson-lecture {
+    padding: clamp(var(--space-lg), 4vw, var(--space-2xl));
+  }
+
+  .section-label {
+    display: flex;
+    align-items: center;
+    gap: var(--space-md);
+    margin-bottom: var(--space-lg);
+  }
+
+  .section-label__index {
+    display: grid;
+    width: 2.5rem;
+    height: 2.5rem;
+    place-items: center;
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-full);
+    color: var(--color-accent-text);
+    font-size: var(--text-sm);
+    font-weight: 700;
+  }
+
+  .section-label h2 {
+    margin: 0;
+    font-size: var(--text-2xl);
+  }
+
+  .lesson-prose {
+    color: var(--color-text);
+    line-height: 1.75;
+  }
+
+  .lesson-prose :global(h2) {
+    margin: 0 0 var(--space-lg);
+    font-size: var(--text-xl);
+  }
+
+  .lesson-prose :global(h3) {
+    margin: var(--space-xl) 0 var(--space-sm);
+    font-size: var(--text-lg);
+  }
+
+  .lesson-prose :global(p),
+  .lesson-prose :global(ul),
+  .lesson-prose :global(ol) {
+    color: var(--color-text-muted);
+  }
+
+  .lesson-prose :global(table) {
+    display: block;
+    max-width: 100%;
+    overflow-x: auto;
+    border-collapse: collapse;
+  }
+
+  .lesson-prose :global(th),
+  .lesson-prose :global(td) {
+    border: 1px solid var(--glass-border);
+    padding: 0.55rem 0.75rem;
+    text-align: left;
+  }
+
+  .lesson-prose :global(pre) {
+    overflow-x: auto;
+    padding: var(--space-md);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-md);
+    background: var(--glass-bg);
+    font-size: var(--text-sm);
+  }
+
+  .lesson-prose :global(code) {
+    font-family: var(--font-mono);
+  }
+
+  .lesson-prose :global(p > code),
+  .lesson-prose :global(li > code) {
+    padding: 0.1em 0.35em;
+    border-radius: var(--radius-sm);
+    background: var(--color-accent-glass);
+  }
+
+  .code-topics {
+    margin-top: var(--space-xl);
+    padding-top: var(--space-lg);
+    border-top: 1px solid var(--glass-border);
+  }
+
+  .code-topics > span {
+    font-size: var(--text-sm);
+    font-weight: 700;
+  }
+
+  .code-topics ul {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-sm);
+    margin: var(--space-sm) 0 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .code-topics li {
+    padding: 0.35rem 0.65rem;
+    border-radius: var(--radius-full);
+    background: var(--color-accent-glass);
+    color: var(--color-accent-text);
+    font-size: var(--text-sm);
+  }
+
+  .related-labs {
+    display: grid;
+    grid-template-columns: minmax(13rem, 0.8fr) minmax(0, 1.2fr);
+    align-items: center;
+    gap: var(--space-lg);
+    padding: var(--space-lg);
+    border: 1px solid var(--glass-border);
+    background: radial-gradient(ellipse at 8% 0%, var(--color-accent-glass), transparent 60%), var(--glass-bg);
+  }
+
+  :global(html[data-theme='light']) .course-toc,
+  :global(html[data-theme='light']) .lesson-lecture,
+  :global(html[data-theme='light']) .related-labs {
+    --glass-sat: 120%;
+    background-color: color-mix(in srgb, var(--color-surface) 50%, var(--glass-bg-solid) 50%);
+  }
+
+  @media (prefers-reduced-transparency: reduce) {
+    :global(html[data-theme='light']) .course-toc,
+    :global(html[data-theme='light']) .lesson-lecture,
+    :global(html[data-theme='light']) .related-labs {
+      background-color: var(--glass-bg);
+    }
+  }
+
+  .related-labs h2 {
+    margin: .35rem 0;
+    font-size: var(--text-xl);
+  }
+
+  .related-labs > div:first-child > p:last-child {
+    margin: 0;
+    color: var(--color-text-muted);
+    font-size: var(--text-sm);
+    line-height: 1.5;
+  }
+
+  .related-labs__links {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 13rem), 1fr));
+    gap: var(--space-sm);
+  }
+
+  .related-labs__links a {
+    display: grid;
+    gap: .22rem;
+    padding: .75rem .85rem;
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-lg);
+    background: var(--glass-bg-solid);
+    color: var(--color-text);
+    text-decoration: none;
+    transition: border-color var(--transition-fast), transform var(--transition-fast);
+  }
+
+  .related-labs__links a:hover {
+    transform: translateY(-2px);
+    border-color: var(--color-accent);
+  }
+
+  .related-labs__links a span {
+    color: var(--color-text-muted);
+    font-size: var(--text-xs);
+  }
+
+  .related-labs__links a span:last-child {
+    color: var(--color-accent-text);
+    font-weight: 700;
+  }
+
+  .lesson-demo {
+    min-width: 0;
+  }
+
+  .lesson-demo .section-label {
+    margin-bottom: var(--space-sm);
+  }
+
+  .lesson-demo .section-label h2 {
+    margin: 0;
+  }
+
+  .lesson-demo__note {
+    color: var(--color-text-muted);
+    font-size: var(--text-sm);
+    line-height: 1.6;
+  }
+
+  .source-link {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-lg);
+    margin-top: var(--space-sm);
+    font-size: var(--text-sm);
+  }
+
+  .lesson-pagination {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--space-md);
+  }
+
+  .lesson-pagination :global(a) {
+    display: grid;
+    gap: var(--space-xs);
+    color: inherit;
+    text-decoration: none;
+  }
+
+  .lesson-pagination :global(a:last-child) {
+    text-align: right;
+  }
+
+  .lesson-pagination :global(span) {
+    color: var(--color-text-muted);
+    font-size: var(--text-sm);
+  }
+
+  @media (max-width: 900px) {
+    .lesson-layout {
+      grid-template-columns: 1fr;
+    }
+
+    .course-toc {
+      position: static;
+      max-height: none;
+    }
+  }
+
+  @media (max-width: 640px) {
+    .related-labs {
+      grid-template-columns: 1fr;
+    }
+
+    .lesson-pagination {
+      grid-template-columns: 1fr;
+    }
+
+    .lesson-pagination :global(a:last-child) {
+      text-align: left;
+    }
+  }
+</style>

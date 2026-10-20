@@ -1,0 +1,554 @@
+{
+  "repository": "https://github.com/cinger007/vis",
+  "sourceCommit": "35a66ecb5e35e8c4f2c54a007cb6c590255b6f06",
+  "sourceCommitUrl": "https://github.com/cinger007/vis/tree/35a66ecb5e35e8c4f2c54a007cb6c590255b6f06",
+  "license": {
+    "file": null,
+    "declaredInReadme": false,
+    "status": "No LICENSE file and no license declaration were present in the source tree at this commit."
+  },
+  "snapshotDirectory": "public/course-source",
+  "copiedFileCount": 108,
+  "files": [
+    {
+      "path": "README.md",
+      "gitBlobSha": "dd9faf2b5c0cc4deddebd18151ed43d662babe3d",
+      "sizeBytes": 1889
+    },
+    {
+      "path": "i18n.css",
+      "gitBlobSha": "6322d946cb69680b1ee216319010c19ab9b2b5ef",
+      "sizeBytes": 2034
+    },
+    {
+      "path": "i18n.js",
+      "gitBlobSha": "98bab53926c7427a340c4230692af7b7679b2267",
+      "sizeBytes": 28102
+    },
+    {
+      "path": "index.html",
+      "gitBlobSha": "eab59839bd14d81caeb967d0db0c1757f4ae348f",
+      "sizeBytes": 13814
+    },
+    {
+      "path": "lesson-01/01-数据.md",
+      "gitBlobSha": "48593cd654e711ac58ffc2311707f90435bae482",
+      "sizeBytes": 16574
+    },
+    {
+      "path": "lesson-01/build_en.py",
+      "gitBlobSha": "82b862f4c107724c519c744597ca0a39cd28090f",
+      "sizeBytes": 18446
+    },
+    {
+      "path": "lesson-01/data/join.png",
+      "gitBlobSha": "6d2df6bd058646cb404db3d62012f1e98283cd69",
+      "sizeBytes": 6989
+    },
+    {
+      "path": "lesson-01/data/newstudent.csv",
+      "gitBlobSha": "838077a224ebcdca02884b55671f5d47556eb9b9",
+      "sizeBytes": 5048
+    },
+    {
+      "path": "lesson-01/demo/01-data-loader/index.html",
+      "gitBlobSha": "67ad7f31144a1f707f5e5bf51c8ad7c5b567e6fd",
+      "sizeBytes": 3678
+    },
+    {
+      "path": "lesson-01/demo/01-data-loader/main.js",
+      "gitBlobSha": "e61d01ff3463e763377c90b30b5ed15c09d207e6",
+      "sizeBytes": 3915
+    },
+    {
+      "path": "lesson-01/demo/02-dikw-pyramid/index.html",
+      "gitBlobSha": "594c9b33e3207cdaead8e684bf179a334f9c7097",
+      "sizeBytes": 2526
+    },
+    {
+      "path": "lesson-01/demo/02-dikw-pyramid/main.js",
+      "gitBlobSha": "2e5f78bfa56ccd21d82bd966c6cdccb095059a5b",
+      "sizeBytes": 4011
+    },
+    {
+      "path": "lesson-01/demo/03-attribute-types/index.html",
+      "gitBlobSha": "c6c5c80080e7ec72eee569f8dcb2efe2ed28260f",
+      "sizeBytes": 5452
+    },
+    {
+      "path": "lesson-01/demo/03-attribute-types/main.js",
+      "gitBlobSha": "bd34cecbebfb2fc433de2778a7f4c091aeaf121d",
+      "sizeBytes": 5790
+    },
+    {
+      "path": "lesson-01/demo/04-d3-array-ops/index.html",
+      "gitBlobSha": "a7dd295584bc85021ad40a22cddcb29f225834ca",
+      "sizeBytes": 3983
+    },
+    {
+      "path": "lesson-01/demo/04-d3-array-ops/main.js",
+      "gitBlobSha": "9e6d296999c3a4798edc27591879ab726d1ca675",
+      "sizeBytes": 4414
+    },
+    {
+      "path": "lesson-01/demo/05-selectors/index.html",
+      "gitBlobSha": "d6bc2d9492f027fe58e268a5f59b470177dc1830",
+      "sizeBytes": 5908
+    },
+    {
+      "path": "lesson-01/demo/05-selectors/main.js",
+      "gitBlobSha": "09477896d116d08cea95d4b52968be6ee3842192",
+      "sizeBytes": 1969
+    },
+    {
+      "path": "lesson-01/demo/README.md",
+      "gitBlobSha": "2d26d97ebdd544fbbbe4b2065d7c3fed062bf6b8",
+      "sizeBytes": 1653
+    },
+    {
+      "path": "lesson-01/demo/data/newstudent.csv",
+      "gitBlobSha": "838077a224ebcdca02884b55671f5d47556eb9b9",
+      "sizeBytes": 5048
+    },
+    {
+      "path": "lesson-01/demo/index.html",
+      "gitBlobSha": "d551289573b76cdc70ceca225d3d6ce4b4f2c219",
+      "sizeBytes": 6632
+    },
+    {
+      "path": "lesson-01/demo/styles.css",
+      "gitBlobSha": "a1073e29c9b6e2fc32550b8395264d3f3c66524b",
+      "sizeBytes": 3307
+    },
+    {
+      "path": "lesson-01/en_blocks.json",
+      "gitBlobSha": "214a57df57078db128174d8e53ea949736bd2e78",
+      "sizeBytes": 74581
+    },
+    {
+      "path": "lesson-01/index.html",
+      "gitBlobSha": "23cbbc60bd1fae4968cc11c1c813ff644b9a21f3",
+      "sizeBytes": 84416
+    },
+    {
+      "path": "lesson-01/lecture-en.md",
+      "gitBlobSha": "6ad0917fa3216a3f0aded995a22cbc736aff07b2",
+      "sizeBytes": 19240
+    },
+    {
+      "path": "lesson-01/lecture.md",
+      "gitBlobSha": "4767ca4a1d16bc878e0c996d0f1b852a976970f4",
+      "sizeBytes": 16957
+    },
+    {
+      "path": "lesson-01/lesson.js",
+      "gitBlobSha": "e8ce03b7df6f33ddfb1bfdfa714660cbe92003a8",
+      "sizeBytes": 17383
+    },
+    {
+      "path": "lesson-01/styles.css",
+      "gitBlobSha": "fbf7f22e5aaf755e85a59e52fc161ea9c0e1fec7",
+      "sizeBytes": 11150
+    },
+    {
+      "path": "lesson-01/zh_blocks.json",
+      "gitBlobSha": "15bccc833cd27f15fd63ed34df626dbefe323c23",
+      "sizeBytes": 57533
+    },
+    {
+      "path": "lesson-02/02-数据可视化流程.md",
+      "gitBlobSha": "74eeaebd9cb30650da1eb95addd16f70b0d5fb4f",
+      "sizeBytes": 11223
+    },
+    {
+      "path": "lesson-02/data/newstudent.csv",
+      "gitBlobSha": "838077a224ebcdca02884b55671f5d47556eb9b9",
+      "sizeBytes": 5048
+    },
+    {
+      "path": "lesson-02/en_blocks.json",
+      "gitBlobSha": "1ee9166aae5513339f8610736a35f0ddaa9f499e",
+      "sizeBytes": 54057
+    },
+    {
+      "path": "lesson-02/img/01-mackinlay-ranking.png",
+      "gitBlobSha": "25bbdf7fb42d5284b511608a14093a075332491e",
+      "sizeBytes": 444545
+    },
+    {
+      "path": "lesson-02/img/02-marks-points-lines-areas.png",
+      "gitBlobSha": "e783dc248f63901a11c1578e75c342aaa2a79bd5",
+      "sizeBytes": 21656
+    },
+    {
+      "path": "lesson-02/img/03-channels-position-color-shape.png",
+      "gitBlobSha": "9764b630909f17dfdd2434f6c1b4f2bf71a40753",
+      "sizeBytes": 56713
+    },
+    {
+      "path": "lesson-02/img/04-magnitude-channels.png",
+      "gitBlobSha": "cdaf02033cd68efeb8bfc3fb1bcebc905c2b4935",
+      "sizeBytes": 95775
+    },
+    {
+      "path": "lesson-02/img/05-identity-channels.png",
+      "gitBlobSha": "afa5153082106e6100c3ecd4d0e7a3c93d77bd12",
+      "sizeBytes": 41870
+    },
+    {
+      "path": "lesson-02/index.html",
+      "gitBlobSha": "e245478ea0b98de7a0bb218db024f8eac9264c60",
+      "sizeBytes": 90224
+    },
+    {
+      "path": "lesson-02/lecture-en.md",
+      "gitBlobSha": "ce92a96fbd01becac5b715a4bd23818d3948eb97",
+      "sizeBytes": 18329
+    },
+    {
+      "path": "lesson-02/lecture.md",
+      "gitBlobSha": "7c63b04869f9a4f25f2c41f1c50a8dfcaceb30d9",
+      "sizeBytes": 16953
+    },
+    {
+      "path": "lesson-02/lesson.js",
+      "gitBlobSha": "f97d725976ef040bc0ec5e2eda37895de6d1a729",
+      "sizeBytes": 21411
+    },
+    {
+      "path": "lesson-02/styles.css",
+      "gitBlobSha": "d6ef2b54976235493c78b209b691cf2554e09213",
+      "sizeBytes": 15844
+    },
+    {
+      "path": "lesson-02/zh_blocks.json",
+      "gitBlobSha": "1ee9166aae5513339f8610736a35f0ddaa9f499e",
+      "sizeBytes": 54057
+    },
+    {
+      "path": "lesson-03/data/crime.csv",
+      "gitBlobSha": "f5121d0b3777b87853429453beb9d8c13d2de3bd",
+      "sizeBytes": 3610
+    },
+    {
+      "path": "lesson-03/en_blocks.json",
+      "gitBlobSha": "c5236b367312b1c71fe721af6a570ef60343e435",
+      "sizeBytes": 52077
+    },
+    {
+      "path": "lesson-03/index.html",
+      "gitBlobSha": "0a00155b7fa161fe4cd61bccb92b72c1c88ebf60",
+      "sizeBytes": 59157
+    },
+    {
+      "path": "lesson-03/lecture-en.md",
+      "gitBlobSha": "ed7cf14cbad0e9eb86aae0ddbec57444e2e486ba",
+      "sizeBytes": 8522
+    },
+    {
+      "path": "lesson-03/lecture.md",
+      "gitBlobSha": "6eda26b644e404c8fa260a3c799982c4677502e6",
+      "sizeBytes": 7007
+    },
+    {
+      "path": "lesson-03/lesson.js",
+      "gitBlobSha": "c646c8640b2258d45886844010b8217e7512f6bd",
+      "sizeBytes": 36995
+    },
+    {
+      "path": "lesson-03/styles.css",
+      "gitBlobSha": "767b2d92b265716385d7caf418b026065c15d021",
+      "sizeBytes": 24609
+    },
+    {
+      "path": "lesson-03/zh_blocks.json",
+      "gitBlobSha": "c5236b367312b1c71fe721af6a570ef60343e435",
+      "sizeBytes": 52077
+    },
+    {
+      "path": "lesson-04/data/crime.csv",
+      "gitBlobSha": "f5121d0b3777b87853429453beb9d8c13d2de3bd",
+      "sizeBytes": 3610
+    },
+    {
+      "path": "lesson-04/en_blocks.json",
+      "gitBlobSha": "01565eee0178ef9a641ef96185e7512716227767",
+      "sizeBytes": 36927
+    },
+    {
+      "path": "lesson-04/index.html",
+      "gitBlobSha": "a6bd0e4b422111f98428b7023f6f821211c77219",
+      "sizeBytes": 42379
+    },
+    {
+      "path": "lesson-04/lecture-en.md",
+      "gitBlobSha": "6f3eef3f723f0a3451280bdaeccbb4e855e2bb75",
+      "sizeBytes": 5485
+    },
+    {
+      "path": "lesson-04/lecture.md",
+      "gitBlobSha": "a541dce6364bace63fa174d9cdef1f5e6d9dffcc",
+      "sizeBytes": 4706
+    },
+    {
+      "path": "lesson-04/lesson.js",
+      "gitBlobSha": "6af168e53a3a759c5607be7fd6a083af5ac71ed7",
+      "sizeBytes": 22068
+    },
+    {
+      "path": "lesson-04/styles.css",
+      "gitBlobSha": "62c1b70842bd21ef91bd43ab02ca01265d99c312",
+      "sizeBytes": 24611
+    },
+    {
+      "path": "lesson-04/zh_blocks.json",
+      "gitBlobSha": "9f9200b95e02ed6f63ef5a5e635164ae74153d7d",
+      "sizeBytes": 34503
+    },
+    {
+      "path": "lesson-05/data/french_names.json",
+      "gitBlobSha": "c3f04a448d1f3d1e89a97eb15edd5e199a607cb0",
+      "sizeBytes": 9524
+    },
+    {
+      "path": "lesson-05/data/storyline.js",
+      "gitBlobSha": "9fed94310acaf493509a3f9f09a2ecc8da9cfe7a",
+      "sizeBytes": 2266
+    },
+    {
+      "path": "lesson-05/data/time-attributes.js",
+      "gitBlobSha": "26df5ca53f22def788f38856e2d097f468b0809d",
+      "sizeBytes": 1447
+    },
+    {
+      "path": "lesson-05/data/weather_2024.csv",
+      "gitBlobSha": "2e8b452a483e7581ea7703fcd33b968b35010e50",
+      "sizeBytes": 6978
+    },
+    {
+      "path": "lesson-05/en_blocks.json",
+      "gitBlobSha": "8ad875f3be3ffb166782a89e85146ec0347b0cf8",
+      "sizeBytes": 48450
+    },
+    {
+      "path": "lesson-05/index.html",
+      "gitBlobSha": "f8e106f828898cefe5853623cae466af70b3d80c",
+      "sizeBytes": 55326
+    },
+    {
+      "path": "lesson-05/lecture-en.md",
+      "gitBlobSha": "f9fe6b10b270a04a4d9dbbdb95f22a4131610d49",
+      "sizeBytes": 6780
+    },
+    {
+      "path": "lesson-05/lecture.md",
+      "gitBlobSha": "28d9c127dfe28922f018766981557d151487ca82",
+      "sizeBytes": 5692
+    },
+    {
+      "path": "lesson-05/lesson.js",
+      "gitBlobSha": "6829ef49b04a5becfd9ce3cda83a961517478e63",
+      "sizeBytes": 29553
+    },
+    {
+      "path": "lesson-05/styles.css",
+      "gitBlobSha": "9af20674bdff2a4702c3ba681c33bc6d16fc85b6",
+      "sizeBytes": 27060
+    },
+    {
+      "path": "lesson-05/zh_blocks.json",
+      "gitBlobSha": "a1747d54de7517485f308cceba8e941bccdd5a27",
+      "sizeBytes": 47419
+    },
+    {
+      "path": "styles.css",
+      "gitBlobSha": "92071628c76d7d5f816267f81ff6e11cdc869ed0",
+      "sizeBytes": 5609
+    },
+    {
+      "path": "supplementary/5. 低维数据可视化.pdf",
+      "gitBlobSha": "f042ad298b5da3227ff172ddb2fb7afcc5fc5217",
+      "sizeBytes": 909976
+    },
+    {
+      "path": "supplementary/calendar.html",
+      "gitBlobSha": "7a5ec86d2fb04029691bbbd78d63835d6d9e8144",
+      "sizeBytes": 19519
+    },
+    {
+      "path": "supplementary/calendar1.html",
+      "gitBlobSha": "2bc69892e94a48bab8b82a69366758c9812615ed",
+      "sizeBytes": 19490
+    },
+    {
+      "path": "supplementary/calendar3.html",
+      "gitBlobSha": "50e15d73160516eb8a045380ad2c36ce448206be",
+      "sizeBytes": 24145
+    },
+    {
+      "path": "supplementary/colormap.html",
+      "gitBlobSha": "c920202c6ef1191159165014a0084231cfbb602b",
+      "sizeBytes": 3847
+    },
+    {
+      "path": "supplementary/contour.html",
+      "gitBlobSha": "321597b3a9ba37b03e1ba9682ae5284677303586",
+      "sizeBytes": 13155
+    },
+    {
+      "path": "supplementary/contourd3.html",
+      "gitBlobSha": "2dd385f785145bb8bc0c05a1404daf334ff2b1e3",
+      "sizeBytes": 9698
+    },
+    {
+      "path": "supplementary/crime1985.html",
+      "gitBlobSha": "52f537984f372949db79d590a414ad29ace5df3b",
+      "sizeBytes": 1550
+    },
+    {
+      "path": "supplementary/data/1985CrimeGender - Copy.csv",
+      "gitBlobSha": "da2975e2d4701fdad25b0baf8e57509a802dd246",
+      "sizeBytes": 1135
+    },
+    {
+      "path": "supplementary/data/1985CrimeGender.csv",
+      "gitBlobSha": "2178bb31ffa83727629ea447a723345bd63ae5e7",
+      "sizeBytes": 511
+    },
+    {
+      "path": "supplementary/data/calendar_data.csv",
+      "gitBlobSha": "611aa9199ec7cce82ead381f766e007e4f4d2d07",
+      "sizeBytes": 21921
+    },
+    {
+      "path": "supplementary/data/calendar_data_modified.csv",
+      "gitBlobSha": "5dcad0e623a6f475a79d9c8b4d84263a9e763cde",
+      "sizeBytes": 21840
+    },
+    {
+      "path": "supplementary/data/terrain10.csv",
+      "gitBlobSha": "7d32fa54b844f47f0a576aeab376f9b18780624a",
+      "sizeBytes": 1894
+    },
+    {
+      "path": "supplementary/i18n.css",
+      "gitBlobSha": "14b47eb554654d320da6829a68d78ee60f5eb6bc",
+      "sizeBytes": 2274
+    },
+    {
+      "path": "supplementary/i18n.js",
+      "gitBlobSha": "1edc9be1f74d8da3aab7942bc9974ff7040748a8",
+      "sizeBytes": 24268
+    },
+    {
+      "path": "supplementary/index.html",
+      "gitBlobSha": "bf8009f256be628326f2fc5ddda395b746837354",
+      "sizeBytes": 10326
+    },
+    {
+      "path": "supplementary/mark.html",
+      "gitBlobSha": "5102345b17c5083d10ece04f58987bd9296a10d0",
+      "sizeBytes": 4431
+    },
+    {
+      "path": "supplementary/newstudent - 5人年龄错误.csv",
+      "gitBlobSha": "3e0031a94ed1ef28a585c40f812e40d02a39802d",
+      "sizeBytes": 35069
+    },
+    {
+      "path": "supplementary/newstudent - 班级信息错误.csv",
+      "gitBlobSha": "bd8a21b5951dec9a91537fd1044387fd3dd2ee66",
+      "sizeBytes": 35054
+    },
+    {
+      "path": "supplementary/newstudent.csv",
+      "gitBlobSha": "db592df3fcc62801253d06f9c91545b453fed368",
+      "sizeBytes": 35021
+    },
+    {
+      "path": "supplementary/newstudent.html",
+      "gitBlobSha": "fb2dfd2184aa3a52e1947a77e51a7ca4bb164093",
+      "sizeBytes": 5241
+    },
+    {
+      "path": "supplementary/nssystem.html",
+      "gitBlobSha": "083519800ce5d7fa8f2d76bf36fc47366611ad27",
+      "sizeBytes": 4327
+    },
+    {
+      "path": "supplementary/regression.html",
+      "gitBlobSha": "ce09d8d75a9077b1b9d6db507e192e4f3b4f3aad",
+      "sizeBytes": 404
+    },
+    {
+      "path": "supplementary/sex_compare.html",
+      "gitBlobSha": "ed57dca28281cf32092e41bf1d85adc1bcde61d5",
+      "sizeBytes": 4526
+    },
+    {
+      "path": "supplementary/style/calendar.css",
+      "gitBlobSha": "11f767857c0aed7a13d1f64f4d1c33fed8439f6d",
+      "sizeBytes": 5016
+    },
+    {
+      "path": "supplementary/style/scatter.css",
+      "gitBlobSha": "e03820d3b750d5f3dd6c08fa434596c7c9e61be6",
+      "sizeBytes": 615
+    },
+    {
+      "path": "supplementary/style/system.css",
+      "gitBlobSha": "aa94a7df3965d9c321e456dfda5a8b6c726367b4",
+      "sizeBytes": 1672
+    },
+    {
+      "path": "supplementary/style/table.css",
+      "gitBlobSha": "8946b6212d2a20407edc2bb139c68eb04124a9a0",
+      "sizeBytes": 4221
+    },
+    {
+      "path": "supplementary/style/treelist.css",
+      "gitBlobSha": "adc77bc31e60233ecc0826e1406c6f43a3cffaa4",
+      "sizeBytes": 3834
+    },
+    {
+      "path": "supplementary/tableshow.html",
+      "gitBlobSha": "ca5dfcbb5aa63bb94a6a4ee6189ac83d42e4c761",
+      "sizeBytes": 1134
+    },
+    {
+      "path": "supplementary/treelist.html",
+      "gitBlobSha": "40559e8d41013b4e470e5003b302abf53e1ad7a6",
+      "sizeBytes": 1306
+    },
+    {
+      "path": "supplementary/utils/data.js",
+      "gitBlobSha": "0a63fe96091ed3120a03868215cacbf89adb6ee3",
+      "sizeBytes": 3397
+    },
+    {
+      "path": "supplementary/utils/scatter.js",
+      "gitBlobSha": "c41a4269c73c524c862a14aed3ebd2b81ef5d901",
+      "sizeBytes": 4897
+    },
+    {
+      "path": "supplementary/utils/scatterConfig.json",
+      "gitBlobSha": "b5c9c7aef93d4ab6a8132ee4ba36b719a53d1469",
+      "sizeBytes": 310
+    },
+    {
+      "path": "supplementary/utils/table.js",
+      "gitBlobSha": "de5f0e97104be2c66fcca0046ef134cbf2033739",
+      "sizeBytes": 2608
+    },
+    {
+      "path": "supplementary/utils/treelist.js",
+      "gitBlobSha": "75dc998670152717a1a4a0b1804af132b0da6b73",
+      "sizeBytes": 3029
+    },
+    {
+      "path": "supplementary/utils/volumeRendering.js",
+      "gitBlobSha": "ae0f48e5eebdfd2fe112dc97257efef4d5bf4642",
+      "sizeBytes": 5823
+    }
+  ]
+}

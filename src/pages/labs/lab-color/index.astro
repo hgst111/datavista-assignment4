@@ -1,0 +1,40 @@
+---
+import LabPage from '@/components/labs/LabPage.astro';
+import LabColorExplorer from '@/components/labs/LabColorExplorer.astro';
+---
+
+<LabPage
+  title="CIE Lab 色彩空间探索器"
+  description="交互探索 CIE Lab 色域截面、RGB 与 Lab 插值，以及顺序、发散和分类色板。"
+  eyebrow="03.2 · 03.3 · 03.7 / COLOR LAB"
+  takeaway="Lab 坐标让明度与色度分开表达；但只有落在设备色域内的颜色，才能被屏幕真实显示。"
+  courses={[
+    { slug: 'ch-3-2', label: '3.2 色板类型' },
+    { slug: 'ch-3-3', label: '3.3 Lab 色域' },
+    { slug: 'ch-3-7', label: '3.7 配色生成' },
+  ]}
+>
+  <LabColorExplorer slot="visual" />
+
+  <div class="lab-note-grid">
+    <section class="lab-note-card">
+      <p class="lab-section-eyebrow">怎样读图</p>
+      <h2>调节 L*，观察可显示颜色的边界</h2>
+      <p>
+        横轴 a* 从绿色负值走向红色正值，纵轴 b* 从蓝色负值走向黄色正值。滑动 L* 后，截面会用 Lab 转换逐点重新计算；斜线区不是“黑色”，而是该 Lab 坐标转换后的颜色超出 sRGB 显示范围。
+      </p>
+      <p>点击可显示区域选色，或用三个滑块逐项输入。色块、Lab 坐标和十六进制 RGB 会同步更新。</p>
+    </section>
+    <section class="lab-note-card">
+      <p class="lab-section-eyebrow">选色与编码</p>
+      <h2>先决定数据关系，再挑色板</h2>
+      <ul>
+        <li>顺序型适用于有高低顺序的数值。</li>
+        <li>发散型围绕一个有意义的中心表达两侧偏离。</li>
+        <li>分类型用可区分的色相标识无序类别。</li>
+      </ul>
+      <p>下方并列色带使用相同端点：RGB 通道线性混色与 Lab 感知空间插值的中间路径不同。色板示例来自 D3 的 Viridis、RdBu 与 Tableau 方案。</p>
+    </section>
+  </div>
+  <p class="lab-source-note">实现基于 D3 的 Lab/RGB 转换、颜色插值与调色板。屏幕使用标准 sRGB；截面是在 L* 固定时对 a*、b* 的均匀采样，因此是色域教学探索图，不代表所有显示设备的实际色域边界。</p>
+</LabPage>

@@ -1,0 +1,227 @@
+---
+import sourceSections from '@/data/course-source-sections.json';
+import { withBase } from '@/lib/url';
+
+export interface Props {
+  section: string;
+}
+
+const { section } = Astro.props;
+const source = sourceSections[section as keyof typeof sourceSections];
+
+if (!source) throw new Error(`No preserved course content for ${section}`);
+
+function applyBaseToSourceLinks(html: string): string {
+  return html.replace(
+    /\b(href|src|poster)=(['"])(\/course-source\/[^'"]*)\2/g,
+    (_match, attribute: string, quote: string, path: string) =>
+      `${attribute}=${quote}${withBase(path)}${quote}`,
+  );
+}
+
+const explanationHtml = applyBaseToSourceLinks(source.explain);
+const codeHtml = applyBaseToSourceLinks(source.code);
+---
+
+<div class="legacy-course-content" data-course-content data-course-language="zh">
+  <div class="legacy-course-content__tools" aria-label="讲解语言">
+    <span>原版双语内容</span>
+    <div class="legacy-course-content__language" role="group" aria-label="选择讲解语言">
+      <button type="button" data-course-lang="zh" aria-pressed="true">中文</button>
+      <button type="button" data-course-lang="en" aria-pressed="false">English</button>
+    </div>
+  </div>
+  <section class="legacy-course-content__section" aria-label="原版讲解">
+    <h3>原版讲解</h3>
+    <div class="legacy-course-content__fragment" set:html={explanationHtml} />
+  </section>
+  <section class="legacy-course-content__section legacy-course-content__section--code" aria-label="原版关键代码">
+    <h3>关键代码与解释</h3>
+    <div class="legacy-course-content__fragment legacy-course-content__fragment--code" set:html={codeHtml} />
+  </section>
+</div>
+
+<script>
+  import { onPage } from '@/lib/lifecycle';
+
+  onPage(() => {
+    document.querySelectorAll<HTMLElement>('[data-course-content]').forEach((root) => {
+      if (root.dataset.languageReady === 'true') return;
+      root.dataset.languageReady = 'true';
+
+      root.querySelectorAll<HTMLButtonElement>('[data-course-lang]').forEach((button) => {
+        button.addEventListener('click', () => {
+          const language = button.dataset.courseLang;
+          if (language !== 'zh' && language !== 'en') return;
+          root.dataset.courseLanguage = language;
+          root.querySelectorAll<HTMLButtonElement>('[data-course-lang]').forEach((item) => {
+            item.setAttribute('aria-pressed', String(item.dataset.courseLang === language));
+          });
+        });
+      });
+    });
+  });
+</script>
+
+<style>
+  .legacy-course-content {
+    display: grid;
+    gap: var(--space-xl);
+  }
+
+  .legacy-course-content__tools {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-md);
+    color: var(--color-text-muted);
+    font-size: var(--text-sm);
+  }
+
+  .legacy-course-content__language {
+    display: inline-flex;
+    gap: 0.25rem;
+    padding: 0.2rem;
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-full);
+    background: var(--glass-bg);
+  }
+
+  .legacy-course-content__language button {
+    border: 0;
+    border-radius: var(--radius-full);
+    padding: 0.35rem 0.7rem;
+    background: transparent;
+    color: var(--color-text-muted);
+    font: inherit;
+    cursor: pointer;
+  }
+
+  .legacy-course-content__language button[aria-pressed='true'] {
+    background: var(--color-accent-glass);
+    color: var(--color-accent-text);
+  }
+
+  .legacy-course-content__language button:focus-visible {
+    outline: 2px solid var(--color-accent-text);
+    outline-offset: 2px;
+  }
+
+  .legacy-course-content__section {
+    min-width: 0;
+  }
+
+  .legacy-course-content__section + .legacy-course-content__section {
+    border-top: 1px solid var(--glass-border);
+    padding-top: var(--space-xl);
+  }
+
+  .legacy-course-content__section > h3 {
+    margin: 0 0 var(--space-md);
+    color: var(--color-text);
+    font-size: var(--text-lg);
+  }
+
+  .legacy-course-content__fragment {
+    min-width: 0;
+    color: var(--color-text);
+    line-height: 1.75;
+    overflow-wrap: anywhere;
+  }
+
+  .legacy-course-content__fragment :global(h3[data-lang]) {
+    margin: var(--space-lg) 0 var(--space-sm);
+    color: var(--color-text);
+    font-size: var(--text-base);
+  }
+
+  .legacy-course-content__fragment :global(p),
+  .legacy-course-content__fragment :global(li) {
+    color: var(--color-text-muted);
+  }
+
+  .legacy-course-content__fragment :global(ul),
+  .legacy-course-content__fragment :global(ol) {
+    padding-left: 1.35rem;
+  }
+
+  .legacy-course-content__fragment :global(.note),
+  .legacy-course-content__fragment :global(.key-point),
+  .legacy-course-content__fragment :global(.cross-ref) {
+    margin-block: var(--space-md);
+    border-left: 3px solid var(--color-accent-text);
+    border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+    padding: var(--space-sm) var(--space-md);
+    background: var(--color-accent-glass);
+  }
+
+  .legacy-course-content__fragment :global(.code-purpose) {
+    color: var(--color-accent-text);
+    font-size: var(--text-sm);
+  }
+
+  .legacy-course-content__fragment :global(table) {
+    display: block;
+    max-width: 100%;
+    overflow-x: auto;
+    border-collapse: collapse;
+  }
+
+  .legacy-course-content__fragment :global(th),
+  .legacy-course-content__fragment :global(td) {
+    border: 1px solid var(--glass-border);
+    padding: 0.55rem 0.75rem;
+    text-align: left;
+  }
+
+  .legacy-course-content__fragment :global(pre) {
+    max-width: 100%;
+    overflow-x: auto;
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-md);
+    padding: var(--space-md);
+    background: var(--glass-bg);
+    font-size: var(--text-sm);
+    line-height: 1.6;
+  }
+
+  .legacy-course-content__fragment :global(code) {
+    font-family: var(--font-mono);
+  }
+
+  .legacy-course-content__fragment :global(p > code),
+  .legacy-course-content__fragment :global(li > code) {
+    border-radius: var(--radius-sm);
+    padding: 0.1em 0.35em;
+    background: var(--color-accent-glass);
+  }
+
+  .legacy-course-content__fragment :global(img),
+  .legacy-course-content__fragment :global(svg) {
+    max-width: 100%;
+    height: auto;
+  }
+
+  .legacy-course-content[data-course-language='en'] :global([data-lang='zh-CN']) {
+    display: none !important;
+  }
+
+  .legacy-course-content[data-course-language='en'] :global([data-lang='en-US']) {
+    display: revert !important;
+  }
+
+  .legacy-course-content[data-course-language='zh'] :global([data-lang='en-US']) {
+    display: none !important;
+  }
+
+  .legacy-course-content[data-course-language='zh'] :global([data-lang='zh-CN']) {
+    display: revert !important;
+  }
+
+  @media (max-width: 640px) {
+    .legacy-course-content__tools {
+      align-items: flex-start;
+      flex-direction: column;
+    }
+  }
+</style>

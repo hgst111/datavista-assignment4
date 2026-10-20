@@ -1,0 +1,47 @@
+---
+import '@/styles/labs.css';
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import Header from '@/components/common/Header.astro';
+import Footer from '@/components/common/Footer.astro';
+import Container from '@/components/ui/Container.astro';
+import { withBase } from '@/lib/url';
+
+interface Props {
+  title: string;
+  description: string;
+  eyebrow: string;
+  takeaway: string;
+  courses: { slug: string; label: string }[];
+}
+
+const { title, description, eyebrow, takeaway, courses } = Astro.props;
+---
+
+<BaseLayout title={`${title} · 可视化实验室`} description={description}>
+  <Header />
+  <main id="main" tabindex="-1" class="lab-page">
+    <Container size="xl">
+      <nav class="lab-breadcrumb" aria-label="面包屑">
+        <a href={withBase('/')}>首页</a><span aria-hidden="true">/</span>
+        <a href={withBase('/labs/')}>可视化实验室</a><span aria-hidden="true">/</span>
+        <span aria-current="page">{title}</span>
+      </nav>
+
+      <header class="lab-page__heading">
+        <p class="eyebrow">{eyebrow}</p>
+        <h1>{title}</h1>
+        <p class="lab-page__takeaway">{takeaway}</p>
+        <div class="lab-course-links" aria-label="关联课程小节">
+          <span>课程关联</span>
+          {courses.map((course) => (
+            <a href={withBase(`/course/${course.slug}/`)}>{course.label}</a>
+          ))}
+        </div>
+      </header>
+
+      <slot name="visual" />
+      <div class="lab-page__content"><slot /></div>
+    </Container>
+  </main>
+  <Footer />
+</BaseLayout>
