@@ -79,7 +79,7 @@ const siteConfig: SiteConfig = {
   title: '可视化导论 · D3 与数据可视化课程',
   description: '五章、27 节课程，结合原版讲义、D3 演示与交互式可视化实验。',
   author: '可视化导论课程组',
-  url: 'https://cinger007.github.io/assignment4',
+  url: 'https://hgst111.github.io/datavista-assignment4',
   ogImage: '/og-image.png',
   twitterHandle: '',
   lang: 'zh-CN',

@@ -28,6 +28,9 @@ jobs:
       # Pages artifact. site/base come from astro.config.mjs.
       - name: Build
         uses: withastro/action@v6
+        env:
+          SITE_URL: https://hgst111.github.io
+          SITE_BASE_PATH: /datavista-assignment4
         with:
           node-version: 22
 
